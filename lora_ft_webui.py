@@ -229,6 +229,40 @@ def load_model(pretrained_path, lora_path=None):
     )
     return "Model loaded successfully!"
 
+import librosa
+
+def preprocess_audio(file_path: str, target_sr: int = 16000) -> str:
+    """
+    Load audio, mix to mono, resample to target_sr, and handle errors.
+    Returns path to preprocessed temporary WAV file.
+    """
+    try:
+        if not file_path or not os.path.exists(file_path):
+            return None
+            
+        # librosa handles resampling and mono mixing automatically
+        y, sr = librosa.load(file_path, sr=target_sr, mono=True)
+        
+        # Check for silence or invalid data
+        if len(y) == 0:
+            print(f"Warning: Audio file {file_path} is empty", file=sys.stderr)
+            return None
+        
+        # Normalize to [-1, 1] if not already
+        max_val = np.abs(y).max()
+        if max_val > 1.0:
+            y = y / max_val
+            
+        # Create temp file
+        fd, temp_path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        
+        sf.write(temp_path, y, target_sr, subtype='PCM_16')
+        return temp_path
+    except Exception as e:
+        print(f"Preprocessing failed for {file_path}: {e}", file=sys.stderr)
+        return file_path # Fallback to original if processing fails (might crash later but better than swallowing error here)
+
 def run_inference(text, prompt_wav, prompt_text, lora_selection, cfg_scale, steps, seed, pretrained_path=None):
     global current_model
     
@@ -292,20 +326,30 @@ def run_inference(text, prompt_wav, prompt_text, lora_selection, cfg_scale, step
     final_prompt_wav = None
     final_prompt_text = None
     
+    # Temp file for preprocessed audio
+    temp_preprocessed_wav = None
+    
     if prompt_wav and prompt_wav.strip():
-        # 有参考音频
-        final_prompt_wav = prompt_wav
+        # Preprocess audio (mix to mono, resample)
+        target_sr = current_model.tts_model.sample_rate if current_model else 16000
+        temp_preprocessed_wav = preprocess_audio(prompt_wav, target_sr)
+        
+        # Use preprocessed if successful, else original (fallback)
+        final_prompt_wav = temp_preprocessed_wav if temp_preprocessed_wav else prompt_wav
         
         # 如果没有提供参考文本，尝试自动识别
         if not prompt_text or not prompt_text.strip():
             print("参考音频已提供但缺少文本，自动识别中...", file=sys.stderr)
             try:
+                # Use original wav for ASR as it might be more robust or ASR model handles resampling
                 final_prompt_text = recognize_audio(prompt_wav)
                 if final_prompt_text:
                     print(f"自动识别文本: {final_prompt_text}", file=sys.stderr)
                 else:
+                    if temp_preprocessed_wav: os.remove(temp_preprocessed_wav)
                     return None, "错误：无法识别参考音频内容，请手动填写参考文本"
             except Exception as e:
+                if temp_preprocessed_wav: os.remove(temp_preprocessed_wav)
                 return None, f"错误：自动识别参考音频失败 - {str(e)}"
         else:
             final_prompt_text = prompt_text.strip()
@@ -325,6 +369,12 @@ def run_inference(text, prompt_wav, prompt_text, lora_selection, cfg_scale, step
         import traceback
         traceback.print_exc()
         return None, f"Error: {str(e)}"
+    finally:
+        if temp_preprocessed_wav and os.path.exists(temp_preprocessed_wav):
+            try:
+                os.remove(temp_preprocessed_wav)
+            except:
+                pass
 
 def start_training(
     pretrained_path,

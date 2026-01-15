@@ -3,9 +3,12 @@ import sys
 import json
 import yaml
 import datetime
+import tempfile
 import subprocess
 import threading
 import gradio as gr
+import librosa
+import soundfile as sf
 import torch
 from pathlib import Path
 from typing import Optional
@@ -253,6 +256,30 @@ def load_model(pretrained_path, lora_path=None):
     return "Model loaded successfully!"
 
 
+def preprocess_audio(file_path: str, target_sr: int = 16000) -> Optional[str]:
+    """Mix reference audio to mono and resample it for inference."""
+    try:
+        if not file_path or not os.path.exists(file_path):
+            return None
+
+        audio, _ = librosa.load(file_path, sr=target_sr, mono=True)
+        if len(audio) == 0:
+            print(f"Warning: Audio file {file_path} is empty", file=sys.stderr)
+            return None
+
+        max_value = np.abs(audio).max()
+        if max_value > 1.0:
+            audio = audio / max_value
+
+        fd, temp_path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        sf.write(temp_path, audio, target_sr, subtype="PCM_16")
+        return temp_path
+    except Exception as exc:
+        print(f"Preprocessing failed for {file_path}: {exc}", file=sys.stderr)
+        return file_path
+
+
 def run_inference(text, prompt_wav, prompt_text, lora_selection, cfg_scale, steps, seed, pretrained_path=None):
     # 如果选择了 LoRA 模型且当前模型未加载，尝试从 LoRA config 读取 base_model
     if current_model is None:
@@ -336,10 +363,12 @@ def run_inference(text, prompt_wav, prompt_text, lora_selection, cfg_scale, step
     # 处理 prompt 参数：必须同时为 None 或同时有值
     final_prompt_wav = None
     final_prompt_text = None
+    temp_preprocessed_wav = None
 
     if prompt_wav and prompt_wav.strip():
-        # 有参考音频
-        final_prompt_wav = prompt_wav
+        target_sr = current_model.tts_model.sample_rate if current_model else 16000
+        temp_preprocessed_wav = preprocess_audio(prompt_wav, target_sr)
+        final_prompt_wav = temp_preprocessed_wav or prompt_wav
 
         # 如果没有提供参考文本，尝试自动识别
         if not prompt_text or not prompt_text.strip():
@@ -371,6 +400,12 @@ def run_inference(text, prompt_wav, prompt_text, lora_selection, cfg_scale, step
 
         traceback.print_exc()
         return None, f"Error: {str(e)}"
+    finally:
+        if temp_preprocessed_wav and temp_preprocessed_wav != prompt_wav and os.path.exists(temp_preprocessed_wav):
+            try:
+                os.remove(temp_preprocessed_wav)
+            except OSError:
+                pass
 
 
 def start_training(

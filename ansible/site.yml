@@ -1,0 +1,55 @@
+---
+- name: 在 ttd-worker 上部署 VoxCPM Demo（docker build + compose）
+  hosts: ttd-worker
+  gather_facts: yes
+  vars:
+    project_name: "voxcpm"
+    project_path: "{{ playbook_dir }}/.."
+    remote_project_path: "/opt/voxcpm"
+    image_name: "voxcpm-demo"
+    image_tag: "latest"
+
+    rsync_opts:
+      - "--exclude=*/__pycache__"
+      - "--exclude=*/.pytest_cache"
+      - "--exclude=*/.git"
+      - "--exclude=*.pyc"
+      - "--include=docker/"
+      - "--include=docker/**"
+      - "--include=src/"
+      - "--include=src/**"
+      - "--include=assets/"
+      - "--include=assets/**"
+      - "--include=app.py"
+      - "--include=lora_ft_webui.py"
+      - "--include=scripts/"
+      - "--include=scripts/**"
+      - "--include=conf/"
+      - "--include=conf/**"
+      - "--include=examples/"
+      - "--include=examples/**"
+      - "--include=pyproject.toml"
+      - "--include=README.md"
+      - "--include=LICENSE"
+      - "--exclude=*"
+
+  tasks:
+    - name: 同步项目到 ttd-worker（docker,ci,sync）
+      ansible.posix.synchronize:
+        src: "{{ project_path }}/"
+        dest: "{{ remote_project_path }}/"
+        delete: false
+        rsync_opts: "{{ rsync_opts }}"
+      tags: [docker, ci, sync]
+
+    - name: 在 ttd-worker 上构建 Docker 镜像（docker,ci）
+      ansible.builtin.command:
+        cmd: "docker build -t {{ image_name }}:{{ image_tag }} -f docker/Dockerfile ."
+        chdir: "{{ remote_project_path }}"
+      tags: [docker, ci]
+
+    - name: 使用 docker compose 启动服务（docker,cd）
+      ansible.builtin.command:
+        cmd: "docker compose -f docker/compose.yaml up -d"
+        chdir: "{{ remote_project_path }}"
+      tags: [docker, cd]

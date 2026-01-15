@@ -23,6 +23,7 @@ from voxcpm.core import VoxCPM
 from voxcpm.model.voxcpm import LoRAConfig
 import numpy as np
 from funasr import AutoModel
+from extend.webui_data_prep_tab import build_data_prep_tab
 
 # --- Localization ---
 LANG_DICT = {
@@ -1049,6 +1050,10 @@ with gr.Blocks(title="VoxCPM LoRA WebUI", theme=gr.themes.Soft(), css=custom_css
             # Log refresher
             timer = gr.Timer(1)
             timer.tick(get_training_log, outputs=logs_out)
+
+        # === Data Prep Tab ===
+        with gr.Tab("🧰 数据准备 (Data Prep)") as tab_data_prep:
+            build_data_prep_tab(recognize_audio)
 
         # === Inference Tab ===
         with gr.Tab("🎵 推理 (Inference)") as tab_infer:

@@ -4,8 +4,8 @@ set -e
 CI_MODE=false
 CD_MODE=false
 SYNC_ONLY=false
+API_MODE=false
 ANSIBLE_DIR="./ansible"
-TARGET=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -22,42 +22,43 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     docker)
-      TARGET="$1"
+      TAGS="docker"
+      shift
+      ;;
+    api)
+      TAGS="api"
       shift
       ;;
     *)
-      echo "Usage: $0 [--ci] [--cd] docker | sync"
+      echo "Usage: $0 [--ci] [--cd] docker | api | sync"
       echo "Examples:"
-      echo "  $0 docker         # 同步 + 构建镜像 + 部署容器"
-      echo "  $0 --ci docker    # 仅同步 + 构建镜像"
-      echo "  $0 --cd docker    # 仅部署容器"
-      echo "  $0 sync           # 仅同步项目文件"
+      echo "  $0 docker         # 部署 Demo/Train (Docker Compose)"
+      echo "  $0 api            # 部署 API (Swarm Stack via CI/CD role)"
+      echo "  $0 --ci api       # 仅构建 API 镜像"
+      echo "  $0 --cd api       # 仅部署 API Stack"
       exit 1
       ;;
   esac
 done
 
-if [ "$SYNC_ONLY" = false ] && [ -z "$TARGET" ]; then
-  echo "Error: 请指定部署目标 (docker) 或使用 sync"
-  exit 1
-fi
-
 if [ "$SYNC_ONLY" = true ]; then
-  echo "仅同步项目文件 (sync)..."
-  ansible-playbook "$ANSIBLE_DIR/site.yml" --tags "sync"
+  echo "仅同步..."
+  ansible-playbook -i "$ANSIBLE_DIR/inventory.yml" "$ANSIBLE_DIR/site.yml" --tags "sync"
   exit 0
 fi
 
-TAGS="$TARGET"
-if [ "$CI_MODE" = true ] && [ "$CD_MODE" = false ]; then
-  TAGS="$TAGS,ci"
-  echo "仅构建镜像 (docker,ci)..."
-elif [ "$CI_MODE" = false ] && [ "$CD_MODE" = true ]; then
-  TAGS="$TAGS,cd"
-  echo "仅部署服务 (docker,cd)..."
-else
-  TAGS="$TAGS,ci,cd"
-  echo "使用CI/CD流水线部署 (docker,ci,cd)..."
+if [ -z "$TAGS" ]; then
+    echo "Error: 请指定 docker 或 api"
+    exit 1
 fi
 
+# Append ci/cd tags if specified
+if [ "$CI_MODE" = true ]; then
+    TAGS="$TAGS,ci"
+fi
+if [ "$CD_MODE" = true ]; then
+    TAGS="$TAGS,cd"
+fi
+
+echo "Running playbook with tags: $TAGS"
 ansible-playbook -i "$ANSIBLE_DIR/inventory.yml" "$ANSIBLE_DIR/site.yml" --tags "$TAGS"

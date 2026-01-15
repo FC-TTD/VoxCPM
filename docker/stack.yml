@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  api-1:
+    image: voxcpm-api:latest
+    environment:
+      - TZ=Asia/Shanghai
+      - NVIDIA_VISIBLE_DEVICES=0
+      - VOXCPM_MODEL_PATH=openbmb/VoxCPM1.5
+      # Map model path if we mount it differently, e.g. /app/models/VoxCPM1.5
+      # But current code downloads to cache or loads from local path.
+      # docker/compose.yaml maps /TTD-Data/voxcpm/models -> /app/models
+    command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python -m uvicorn api.server:app --host 0.0.0.0 --port 8000"]
+    volumes:
+      - /TTD-Data/voxcpm:/TTD-Data/voxcpm
+      - /TTD-Data/voxcpm/local:/root/.local
+      - /TTD-Data/voxcpm/cache:/root/.cache
+      - /TTD-Data/voxcpm/lora:/app/lora
+    networks:
+      - caddy
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == ttd-worker
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      labels:
+        caddy: "http://voxcpm-api"
+        caddy.reverse_proxy: "{{upstreams 8000}}"
+
+networks:
+  caddy:
+    external: true

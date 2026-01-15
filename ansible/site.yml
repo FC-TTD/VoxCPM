@@ -88,14 +88,14 @@
 
   roles:
     - role: /workspace/z/ansible/roles/docker_ci_cd
-    - vars:
-      ci_project_name: "{{ project_name }}"
-      ci_project_path: "{{ project_path }}"
-      ci_dockerfile_path: "{{ dockerfile }}"
-      ci_registry_url: "{{ registry_url }}"
-      ci_image_name: "{{ image_name }}"
-      ci_image_tag: "{{ image_tag }}"
-      ci_compose_file_path: "{{ compose_file }}"
-      ci_build_host: "{{ build_host }}"
-      ci_rsync_opts: "{{ rsync_opts }}"
-      pt_stack_name: "{{ project_name }}"
+      vars:
+        ci_project_name: "{{ project_name }}"
+        ci_project_path: "{{ project_path }}"
+        ci_dockerfile_path: "{{ dockerfile }}"
+        ci_registry_url: "{{ registry_url }}"
+        ci_image_name: "{{ image_name }}"
+        ci_image_tag: "{{ image_tag }}"
+        ci_compose_file_path: "{{ compose_file }}"
+        ci_build_host: "{{ build_host }}"
+        ci_rsync_opts: "{{ rsync_opts }}"
+        pt_stack_name: "{{ project_name }}"

@@ -60,5 +60,15 @@ if [ "$CD_MODE" = true ]; then
     TAGS="$TAGS,cd"
 fi
 
+# Check for problematic tag combinations
+if [ "$TAGS" = "docker,cd" ]; then
+    echo "错误：docker 和 cd 标签不能同时使用"
+    echo "请使用以下替代方案："
+    echo "  ./deploy.sh docker     # 仅 Docker Compose 部署"
+    echo "  ./deploy.sh api        # API Swarm Stack 部署"
+    echo "  ./deploy.sh --cd api   # 仅部署 API Stack"
+    exit 1
+fi
+
 echo "Running playbook with tags: $TAGS"
 ansible-playbook -i "$ANSIBLE_DIR/inventory.yml" "$ANSIBLE_DIR/site.yml" --tags "$TAGS"

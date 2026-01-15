@@ -254,6 +254,7 @@ def preprocess_audio(file_path: str, target_sr: int = 16000) -> str:
             y = y / max_val
             
         # Create temp file
+        import tempfile
         fd, temp_path = tempfile.mkstemp(suffix=".wav")
         os.close(fd)
         

@@ -202,6 +202,7 @@ class MiniCPMAttention(nn.Module):
         value_cache[:, :, position_id, :] = value_states
 
         attn_mask = torch.arange(key_cache.size(2), device=key_cache.device) <= position_id
+        attn_mask = attn_mask.view(1, 1, 1, -1)
 
         # ref: https://github.com/pytorch/pytorch/issues/163597
         # there is a bug in MPS for non-contiguous tensors, so we need to make them contiguous

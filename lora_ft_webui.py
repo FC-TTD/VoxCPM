@@ -1150,7 +1150,8 @@ with gr.Blocks(
                     audio_out = gr.Audio(
                         label="",
                         elem_classes="input-field",
-                        show_label=False
+                        show_label=False,
+                        show_download_button=True
                     )
 
                     gr.Markdown("#### 📋 状态信息")

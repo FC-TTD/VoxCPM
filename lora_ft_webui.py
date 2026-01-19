@@ -1169,7 +1169,12 @@ with gr.Blocks(title="VoxCPM LoRA WebUI", theme=gr.themes.Soft(), css=custom_css
                 with gr.Column(scale=30, elem_classes="form-section"):
                     gr.Markdown("#### 🎧 生成结果")
 
-                    audio_out = gr.Audio(label="", elem_classes="input-field", show_label=False)
+                    audio_out = gr.Audio(
+                        label="",
+                        elem_classes="input-field",
+                        show_label=False,
+                        show_download_button=True,
+                    )
 
                     gr.Markdown("#### 📋 状态信息")
 

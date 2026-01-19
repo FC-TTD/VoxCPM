@@ -1,27 +1,4 @@
 services:
-  demo-tts:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    image: voxcpm-demo:latest
-    container_name: voxcpm-demo
-    environment:
-      - TZ=Asia/Shanghai
-      - NVIDIA_VISIBLE_DEVICES=2
-      - GRADIO_SERVER_NAME=0.0.0.0
-      - HF_REPO_ID=openbmb/VoxCPM1.5
-      - TORCHDYNAMO_DISABLE=1
-    command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python -c \"import app; app.run_demo(server_name='0.0.0.0', server_port=7860, show_error=True)\""]
-    ports:
-      - "6860:7860"
-    volumes:
-      - /TTD-Data/voxcpm:/TTD-Data/voxcpm
-      - /TTD-Data/voxcpm/local:/root/.local
-      - /TTD-Data/voxcpm/cache:/root/.cache
-    restart: unless-stopped
-    networks:
-      - caddy
-
   lora-ft:
     image: voxcpm-demo:latest
     container_name: voxcpm-lora-ft

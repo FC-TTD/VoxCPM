@@ -13,6 +13,7 @@
       - "--exclude=*/__pycache__"
       - "--exclude=*/.pytest_cache"
       - "--exclude=*/.git"
+      - "--exclude=*/.venv"
       - "--exclude=*.pyc"
       - "--include=docker/"
       - "--include=docker/**"
@@ -71,6 +72,7 @@
     ci_rsync_opts:
       - "--exclude=*/__pycache__"
       - "--exclude=*/.pytest_cache"
+      - "--exclude=*/.venv"
       - "--exclude=*/.git"
       - "--exclude=*.pyc"
       - "--include=src/"

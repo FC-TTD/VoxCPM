@@ -23,14 +23,19 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_model():
-    # Setup the global model in api.server
+    # Setup the mock model
     mock = MagicMock()
     mock.tts_model.sample_rate = 16000
     mock.generate.return_value = np.zeros(16000, dtype=np.float32)
     
+    # Setup mock model manager with get() method
+    mock_manager = MagicMock()
+    mock_manager.get.return_value = mock
+    mock_manager.stop.return_value = None
+    
     mock_lora_manager = MagicMock()
 
-    with patch("api.server.model", mock), patch("api.server.lora_manager", mock_lora_manager):
+    with patch("api.server.model_manager", mock_manager), patch("api.server.lora_manager", mock_lora_manager):
         yield mock
 
 def test_health(mock_model):
@@ -40,7 +45,7 @@ def test_health(mock_model):
     assert "status" in response.json()
 
 def test_generate_no_model():
-    with patch("api.server.model", None):
+    with patch("api.server.model_manager", None):
         response = client.post("/generate", data={"text": "hello"})
         assert response.status_code == 503
 

@@ -35,10 +35,11 @@ from ttd_fastapi_utils import (
     loudnorm as _loudnorm,
     setup_cuda_health,
     trim_silence as _trim_silence,
+    SmartModel,
 )
 
 GPU_LOCK = asyncio.Lock()
-model: Optional[VoxCPM] = None
+model_manager: Optional[SmartModel] = None
 lora_manager: Optional[LoRAManager] = None
 
 # Environment variables
@@ -85,9 +86,8 @@ def preprocess_audio(file_path: str, target_sr: int = 16000) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global model, lora_manager
+    global model_manager, lora_manager
     device = _resolve_device()
-    logger.info(f"Loading VoxCPM model from {MODEL_PATH} on {device}...")
     
     # Initialize with default LoRA config to enable hot-swapping
     lora_config = LoRAConfig(
@@ -96,7 +96,8 @@ async def lifespan(app: FastAPI):
         enable_proj=False
     )
     
-    try:
+    def loader():
+        logger.info(f"Loading VoxCPM model from {MODEL_PATH} on {device}...")
         model = VoxCPM.from_pretrained(
             hf_model_id=MODEL_PATH,
             load_denoiser=True, 
@@ -104,13 +105,22 @@ async def lifespan(app: FastAPI):
             lora_config=lora_config,
             device=device
         )
-        lora_manager = LoRAManager(capacity=5)
         logger.info("VoxCPM model loaded successfully.")
+        return model
+
+    try:
+        # Default 2h timeout
+        model_manager = SmartModel(loader, timeout_seconds=7200)
+        lora_manager = LoRAManager(capacity=5)
+        yield
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         raise
+    finally:
+        if model_manager:
+            model_manager.stop()
+            model_manager = None
     
-    yield
 
 app = FastAPI(title="VoxCPM API", lifespan=lifespan)
 
@@ -118,7 +128,7 @@ app = FastAPI(title="VoxCPM API", lifespan=lifespan)
 cuda_monitor = setup_cuda_health(
     app,
     path="/health",
-    ready_predicate=lambda: model is not None,
+    ready_predicate=lambda: model_manager is not None,
 )
 
 @app.post("/generate")
@@ -134,12 +144,15 @@ async def generate(
     postprocess: bool = Form(True), # Output audio post-processing
     trim_silence: bool = Form(True), # Output silence trimming
 ):
-    if not model:
-        raise HTTPException(status_code=503, detail="Model not initialized")
+    if not model_manager:
+        raise HTTPException(status_code=503, detail="Model manager not initialized")
 
     temp_prompt_path = None
     preprocessed_path = None
     try:
+        # Get model instance
+        model = model_manager.get()
+        
         # Handle prompt audio
         if prompt_audio:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:

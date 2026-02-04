@@ -61,7 +61,7 @@ if [ "$CD_MODE" = true ]; then
 fi
 
 # Check for problematic tag combinations
-if [ "$TAGS" = "docker,cd" ]; then
+if [[ "$TAGS" == *"docker"* && "$TAGS" == *"cd"* ]]; then
     echo "错误：docker 和 cd 标签不能同时使用"
     echo "请使用以下替代方案："
     echo "  ./deploy.sh docker     # 仅 Docker Compose 部署"

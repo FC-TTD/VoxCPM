@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     soxr \
     pyloudnorm \
     python-multipart \
-    "ttd-fastapi-utils>=0.2.3" \
+    "ttd-fastapi-utils>=0.3.0" \
     --index-url http://pypi-server/simple/ \
     --trusted-host pypi-server \
     --extra-index-url https://pypi.org/simple

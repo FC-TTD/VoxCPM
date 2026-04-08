@@ -1,6 +1,6 @@
 # VoxCPM API Server Guide
 
-The VoxCPM API Server provides a FastAPI-based interface for high-performance Text-to-Speech generation, compatible with TTD Swarm and featuring dynamic LoRA adapter hot-swapping.
+The VoxCPM API Server provides a FastAPI-based interface for high-performance Text-to-Speech generation, compatible with TTD Swarm and featuring dynamic LoRA adapter hot-swapping. It is now aligned with the VoxCPM2 reference-audio and continuation workflow.
 
 ## Features
 
@@ -46,8 +46,10 @@ Generate audio from text.
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `text` | string | **Required** | The text to synthesize. |
-| `prompt_audio` | file | Optional | Reference WAV file for voice cloning. |
-| `prompt_text` | string | Optional | Transcript of the prompt audio. |
+| `prompt_audio` | file | Optional | Prompt WAV file for continuation / ultimate cloning. Must be paired with `prompt_text`. |
+| `prompt_text` | string | Optional | Transcript of the prompt audio. Must be paired with `prompt_audio`. |
+| `reference_audio` | file | Optional | Reference WAV file for VoxCPM2 voice cloning. |
+| `control` | string | Optional | Natural-language voice/style control. The server prepends it to text as `(control)text`. |
 | `lora_name` | string | Optional | Name of LoRA in `/app/lora` or absolute path. Use `None` to disable. |
 | `cfg_value` | float | 2.0 | CFG guidance scale. |
 | `inference_timesteps` | int | 10 | Diffusion steps. |
@@ -57,7 +59,14 @@ Generate audio from text.
 | `trim_silence` | bool | True | Trim silence from the start/end of generated audio. |
 
 **Response:**
-Returns `audio/wav` file.
+Returns `audio/wav` file. The output sample rate follows the loaded model, typically 48kHz on VoxCPM2.
+
+**Mode combinations:**
+
+- `text` only: plain TTS / voice design
+- `text` + `reference_audio`: VoxCPM2 controllable cloning
+- `text` + `prompt_audio` + `prompt_text`: continuation / ultimate cloning
+- `text` + `reference_audio` + `prompt_audio` + `prompt_text`: VoxCPM2 reference + continuation combined mode
 
 ### 2. `GET /health`
 
@@ -74,5 +83,5 @@ Health check for deployment.
 
 ## Environment Variables
 
-- `VOXCPM_MODEL_PATH`: Path to base model (default: `openbmb/VoxCPM1.5`).
+- `VOXCPM_MODEL_PATH`: Path to base model (default: `openbmb/VoxCPM2`).
 - `DEVICE`: Torch device (default: auto-detect `cuda` or `cpu`).

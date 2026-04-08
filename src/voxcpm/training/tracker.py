@@ -76,4 +76,3 @@ class TrainingTracker:
     @contextlib.contextmanager
     def live(self):
         yield
-

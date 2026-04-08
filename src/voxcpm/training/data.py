@@ -1,5 +1,4 @@
 import math
-from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import argbind
@@ -10,7 +9,6 @@ from torch.utils.data import Dataset as TorchDataset
 from ..model.voxcpm import VoxCPMConfig
 from ..modules.audiovae import AudioVAE
 from .packers import AudioFeatureProcessingPacker
-
 
 DEFAULT_TEXT_COLUMN = "text"
 DEFAULT_AUDIO_COLUMN = "audio"
@@ -36,7 +34,7 @@ def load_audio_text_datasets(
     def prepare(ds: Dataset) -> Dataset:
         if audio_column not in ds.column_names:
             raise ValueError(f"Expected '{audio_column}' column in manifest.")
-        # We cast to Audio to ensure proper handling during training, 
+        # We cast to Audio to ensure proper handling during training,
         # but for length calculation we might need raw path or duration if available.
         # HF datasets usually don't compute duration automatically for 'Audio' column.
         ds = ds.cast_column(audio_column, Audio(sampling_rate=sample_rate))
@@ -70,13 +68,13 @@ def compute_sample_lengths(
         duration(s) * audio_vae_fps -> 近似 VAE 帧数 t_vae
         t_seq = ceil(t_vae / patch_size)
     - 序列总长约为: text_len + t_seq + 2
-    
+
     Optimized: Use batch column access instead of iterating item by item.
     """
     # Batch access columns - much faster than per-item access
     text_ids_list = ds["text_ids"]
     text_lens = [len(t) for t in text_ids_list]
-    
+
     has_duration = "duration" in ds.column_names
     if has_duration:
         durations = ds["duration"]
@@ -86,7 +84,7 @@ def compute_sample_lengths(
         for i in range(len(ds)):
             audio = ds[i][DEFAULT_AUDIO_COLUMN]
             durations.append(len(audio["array"]) / float(audio["sampling_rate"]))
-    
+
     # Vectorized length computation
     lengths = []
     for text_len, duration in zip(text_lens, durations):

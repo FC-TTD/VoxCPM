@@ -3,6 +3,7 @@ import sys
 import logging
 import asyncio
 import tempfile
+import inspect
 from contextlib import asynccontextmanager
 from typing import Optional
 from io import BytesIO
@@ -35,15 +36,31 @@ from ttd_fastapi_utils import (
     loudnorm as _loudnorm,
     setup_cuda_health,
     trim_silence as _trim_silence,
-    SmartModel,
 )
+
+try:
+    from ttd_fastapi_utils import SmartModel
+except ImportError:
+    class SmartModel:
+        def __init__(self, loader, timeout_seconds: int = 7200):
+            self.loader = loader
+            self.timeout_seconds = timeout_seconds
+            self._model = None
+
+        def get(self):
+            if self._model is None:
+                self._model = self.loader()
+            return self._model
+
+        def stop(self):
+            self._model = None
 
 GPU_LOCK = asyncio.Lock()
 model_manager: Optional[SmartModel] = None
 lora_manager: Optional[LoRAManager] = None
 
 # Environment variables
-MODEL_PATH = os.environ.get("VOXCPM_MODEL_PATH", "openbmb/VoxCPM1.5")
+MODEL_PATH = os.environ.get("VOXCPM_MODEL_PATH", "openbmb/VoxCPM2")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def _resolve_device() -> str:
@@ -83,6 +100,59 @@ def preprocess_audio(file_path: str, target_sr: int = 16000) -> str:
     except Exception as e:
         logger.error(f"Preprocessing failed for {file_path}: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid audio file: {e}")
+
+
+def _get_input_sample_rate(model) -> int:
+    tts_model = getattr(model, "tts_model", None)
+    if tts_model is None:
+        return 16000
+    return int(getattr(tts_model, "_encode_sample_rate", getattr(tts_model, "sample_rate", 16000)))
+
+
+def _supports_reference_audio(model) -> bool:
+    try:
+        parameters = inspect.signature(model.generate).parameters
+    except (TypeError, ValueError):
+        return False
+    return "reference_wav_path" in parameters
+
+
+def _build_generation_kwargs(
+    model,
+    *,
+    text: str,
+    control: Optional[str],
+    prompt_wav_path: Optional[str],
+    prompt_text: Optional[str],
+    reference_wav_path: Optional[str],
+    cfg_value: float,
+    inference_timesteps: int,
+    normalize: bool,
+    denoise: bool,
+) -> dict:
+    final_text = text
+    if control and control.strip():
+        final_text = f"({control.strip()}){text}"
+
+    kwargs = {
+        "text": final_text,
+        "prompt_wav_path": prompt_wav_path,
+        "prompt_text": prompt_text,
+        "cfg_value": cfg_value,
+        "inference_timesteps": inference_timesteps,
+        "normalize": normalize,
+        "denoise": denoise,
+    }
+
+    if reference_wav_path:
+        if not _supports_reference_audio(model):
+            raise HTTPException(
+                status_code=400,
+                detail="Current model runtime does not support reference_audio. Upgrade to a VoxCPM2-compatible runtime first.",
+            )
+        kwargs["reference_wav_path"] = reference_wav_path
+
+    return kwargs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -136,6 +206,8 @@ async def generate(
     text: str = Form(...),
     prompt_audio: Optional[UploadFile] = File(None),
     prompt_text: Optional[str] = Form(None),
+    reference_audio: Optional[UploadFile] = File(None),
+    control: Optional[str] = Form(None),
     lora_name: Optional[str] = Form(None),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
@@ -148,10 +220,17 @@ async def generate(
         raise HTTPException(status_code=503, detail="Model manager not initialized")
 
     temp_prompt_path = None
+    temp_reference_path = None
     preprocessed_path = None
+    preprocessed_reference_path = None
     try:
         # Get model instance
         model = model_manager.get()
+
+        if prompt_audio and not prompt_text:
+            raise HTTPException(status_code=400, detail="prompt_text is required when prompt_audio is provided")
+        if prompt_text and not prompt_audio:
+            raise HTTPException(status_code=400, detail="prompt_audio is required when prompt_text is provided")
         
         # Handle prompt audio
         if prompt_audio:
@@ -160,13 +239,17 @@ async def generate(
                 f.write(content)
                 temp_prompt_path = f.name
             
-            # Preprocess audio to avoid tensor errors
-            # Target SR depends on model config, usually available in model.tts_model.sample_rate
-            # But VoxCPM core might need original SR or specific? 
-            # Core handles resampling, but to be safe we use librosa to sanitize first.
-            target_sr = model.tts_model.sample_rate if model else 16000 # Fallback
-            # Run in threadpool as it is CPU bound
+            target_sr = _get_input_sample_rate(model)
             preprocessed_path = await run_in_threadpool(preprocess_audio, temp_prompt_path, target_sr)
+
+        if reference_audio:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                content = await reference_audio.read()
+                f.write(content)
+                temp_reference_path = f.name
+
+            target_sr = _get_input_sample_rate(model)
+            preprocessed_reference_path = await run_in_threadpool(preprocess_audio, temp_reference_path, target_sr)
         
         async with GPU_LOCK:
             # Handle LoRA switching via Manager
@@ -193,20 +276,22 @@ async def generate(
             
             # Generate
             logger.info(f"Generating TTS for text: {text[:20]}...")
-            # Use preprocessed path if available, else temp_prompt_path (which might be raw upload if preprocess failed/skipped? No, if prompt_audio exists, we preprocess)
-            # If preprocess failed, it raises HTTPException.
             input_wav_path = preprocessed_path if preprocessed_path else temp_prompt_path
-            
-            wav_np = await run_in_threadpool(
-                model.generate,
+
+            generation_kwargs = _build_generation_kwargs(
+                model,
                 text=text,
+                control=control,
                 prompt_wav_path=input_wav_path,
                 prompt_text=prompt_text,
+                reference_wav_path=preprocessed_reference_path if preprocessed_reference_path else temp_reference_path,
                 cfg_value=cfg_value,
                 inference_timesteps=inference_timesteps,
                 normalize=normalize,
-                denoise=denoise
+                denoise=denoise,
             )
+
+            wav_np = await run_in_threadpool(model.generate, **generation_kwargs)
             
             sr = model.tts_model.sample_rate
 
@@ -237,7 +322,7 @@ async def generate(
         logger.error(f"Generation error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        for p in [temp_prompt_path, preprocessed_path]:
+        for p in [temp_prompt_path, temp_reference_path, preprocessed_path, preprocessed_reference_path]:
             if p and os.path.exists(p):
                 try:
                     os.remove(p)

@@ -125,7 +125,10 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(out_path), audio_np, model.tts_model.sample_rate)
 
-    print(f"[FT Inference] Saved to: {out_path}, duration: {len(audio_np) / model.tts_model.sample_rate:.2f}s", file=sys.stderr)
+    print(
+        f"[FT Inference] Saved to: {out_path}, duration: {len(audio_np) / model.tts_model.sample_rate:.2f}s",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 ---
-- name: 在 ttd-worker 上部署 VoxCPM Demo（docker build + compose）
-  hosts: ttd-worker
+- name: 在 ttd-edge 上部署 VoxCPM Demo（docker build + compose）
+  hosts: ttd-edge
   gather_facts: yes
   vars:
     project_name: "voxcpm"
@@ -35,7 +35,7 @@
       - "--exclude=*"
 
   tasks:
-    - name: 同步项目到 ttd-worker（docker,ci,sync）
+    - name: 同步项目到 ttd-edge（docker,ci,sync）
       ansible.posix.synchronize:
         src: "{{ project_path }}/"
         dest: "{{ remote_project_path }}/"
@@ -43,7 +43,7 @@
         rsync_opts: "{{ rsync_opts }}"
       tags: [docker, ci, sync]
 
-    - name: 在 ttd-worker 上构建 Docker 镜像（docker,ci）
+    - name: 在 ttd-edge 上构建 Docker 镜像（docker,ci）
       ansible.builtin.command:
         cmd: "docker build -t {{ image_name }}:{{ image_tag }} -f docker/Dockerfile ."
         chdir: "{{ remote_project_path }}"
@@ -51,7 +51,7 @@
 
     - name: 使用 docker compose 启动服务（docker,cd）
       ansible.builtin.command:
-        cmd: "docker compose -f docker/compose.yaml up -d"
+        cmd: "docker compose -f docker/compose.yaml up -d --remove-orphans"
         chdir: "{{ remote_project_path }}"
       tags: [docker, cd]
 

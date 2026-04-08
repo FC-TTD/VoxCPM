@@ -6,10 +6,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - NVIDIA_VISIBLE_DEVICES=0
-      - VOXCPM_MODEL_PATH=openbmb/VoxCPM1.5
-      # Map model path if we mount it differently, e.g. /app/models/VoxCPM1.5
-      # But current code downloads to cache or loads from local path.
-      # docker/compose.yaml maps /TTD-Data/voxcpm/models -> /app/models
+      - VOXCPM_MODEL_PATH=openbmb/VoxCPM2
     command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python -m uvicorn api.server:app --host 0.0.0.0 --port 8000"]
     volumes:
       - /TTD-Data/voxcpm:/TTD-Data/voxcpm
@@ -23,7 +20,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.hostname == ttd-worker
+          - node.hostname == ttd-edge
       resources:
         reservations:
           devices:

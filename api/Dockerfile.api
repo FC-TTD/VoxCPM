@@ -6,7 +6,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONPATH=/app \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VOXCPM=0.0.0
+    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VOXCPM=0.0.0 \
+    PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+    PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn \
+    UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -34,9 +37,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     pyloudnorm \
     python-multipart \
     "ttd-fastapi-utils>=0.3.0" \
-    --index-url http://pypi-server/simple/ \
+    --index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    --trusted-host pypi.tuna.tsinghua.edu.cn \
+    --extra-index-url http://pypi-server/simple/ \
     --trusted-host pypi-server \
-    --extra-index-url https://pypi.org/simple
+    --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 COPY src ./src
 

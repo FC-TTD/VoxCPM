@@ -6,7 +6,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONPATH=/app \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VOXCPM=0.0.0
+    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VOXCPM=0.0.0 \
+    PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+    PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && apt-get install -y --no-install-recommends \

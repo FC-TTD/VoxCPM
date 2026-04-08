@@ -171,7 +171,7 @@ async def lifespan(app: FastAPI):
         model = VoxCPM.from_pretrained(
             hf_model_id=MODEL_PATH,
             load_denoiser=True, 
-            optimize=True,
+            optimize=False,
             lora_config=lora_config,
             device=device
         )
@@ -212,7 +212,7 @@ async def generate(
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
     normalize: bool = Form(True),
-    denoise: bool = Form(True), # Input prompt denoising
+    denoise: bool = Form(False), # Input prompt denoising
     postprocess: bool = Form(True), # Output audio post-processing
     trim_silence: bool = Form(True), # Output silence trimming
 ):

@@ -218,6 +218,16 @@ _APP_THEME = gr.themes.Soft(
 )
 
 
+def _resolve_gradio_logo_src() -> str:
+    mount_path = (os.environ.get("GRADIO_MOUNT_PATH", "/gradio") or "/gradio").strip()
+    if not mount_path.startswith("/"):
+        mount_path = f"/{mount_path}"
+    mount_path = mount_path.rstrip("/")
+    if not mount_path:
+        return "/gradio_api/file=assets/voxcpm_logo.png"
+    return f"{mount_path}/gradio_api/file=assets/voxcpm_logo.png"
+
+
 # ---------- Model ----------
 
 class VoxCPMDemo:
@@ -263,7 +273,7 @@ class VoxCPMDemo:
         logger.info("Model not loaded, initializing...")
         model_dir = self._resolve_model_dir()
         logger.info(f"Using model dir: {model_dir}")
-        self.voxcpm_model = voxcpm.VoxCPM(voxcpm_model_path=model_dir, optimize=True)
+        self.voxcpm_model = voxcpm.VoxCPM(voxcpm_model_path=model_dir, optimize=False)
         logger.info("Model loaded successfully.")
         return self.voxcpm_model
 
@@ -305,7 +315,7 @@ class VoxCPMDemo:
         prompt_text: str = "",
         cfg_value_input: float = 2.0,
         do_normalize: bool = True,
-        denoise: bool = True,
+        denoise: bool = False,
         inference_timesteps: int = 10,
     ) -> Tuple[int, np.ndarray]:
         current_model = self.get_or_load_voxcpm()
@@ -345,6 +355,7 @@ class VoxCPMDemo:
 
 def create_demo_interface(demo: VoxCPMDemo):
     gr.set_static_paths(paths=[Path.cwd().absolute() / "assets"])
+    logo_src = _resolve_gradio_logo_src()
 
     def _generate(
         text: str,
@@ -399,7 +410,7 @@ def create_demo_interface(demo: VoxCPMDemo):
     with gr.Blocks() as interface:
         gr.HTML(
             '<div class="logo-container">'
-            '<img src="/gradio_api/file=assets/voxcpm_logo.png" alt="VoxCPM Logo">'
+            f'<img src="{logo_src}" alt="VoxCPM Logo">'
             "</div>"
         )
 

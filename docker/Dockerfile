@@ -26,9 +26,17 @@ COPY src ./src
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip \
-    && pip install .
+    && pip install . \
+    && pip install fastapi uvicorn soxr python-multipart \
+    && pip install \
+      --index-url http://pypi-server/simple/ \
+      --trusted-host pypi-server \
+      --extra-index-url https://pypi.org/simple \
+      ttd-fastapi-utils
 
 COPY app.py ./
+COPY entry.py ./
+COPY api ./api
 COPY lora_ft_webui.py ./
 COPY scripts ./scripts
 COPY conf ./conf
@@ -38,6 +46,6 @@ COPY assets ./assets
 RUN find /opt/appenv -type d -name "__pycache__" -prune -exec rm -rf {} + || true \
     && rm -rf /root/.cache/pip || true
 
-EXPOSE 7860
+EXPOSE 8000
 
-CMD ["python", "app.py"]
+CMD ["python", "-m", "uvicorn", "entry:app", "--host", "0.0.0.0", "--port", "8000"]

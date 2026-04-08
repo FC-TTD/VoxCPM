@@ -21,7 +21,10 @@
       - "--include=src/**"
       - "--include=assets/"
       - "--include=assets/**"
+      - "--include=api/"
+      - "--include=api/**"
       - "--include=app.py"
+      - "--include=entry.py"
       - "--include=lora_ft_webui.py"
       - "--include=scripts/"
       - "--include=scripts/**"
@@ -45,7 +48,7 @@
 
     - name: 在 ttd-worker 上构建 Docker 镜像（docker,ci）
       ansible.builtin.command:
-        cmd: "docker build -t {{ image_name }}:{{ image_tag }} -f docker/Dockerfile ."
+        cmd: "docker build --network host -t {{ image_name }}:{{ image_tag }} -f docker/Dockerfile ."
         chdir: "{{ remote_project_path }}"
       tags: [docker, ci]
 

@@ -1,21 +1,25 @@
 services:
-  lora-ft:
+  demo:
     image: voxcpm-demo:latest
-    container_name: voxcpm-lora-ft
+    container_name: voxcpm-demo
     environment:
       - TZ=Asia/Shanghai
       - NVIDIA_VISIBLE_DEVICES=1
       - GRADIO_SERVER_NAME=0.0.0.0
-    command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python lora_ft_webui.py"]
+      - GRADIO_MOUNT_PATH=/gradio
+      - HF_REPO_ID=openbmb/VoxCPM2
+      - VOXCPM_MODEL_DIR=/app/models/openbmb__VoxCPM2
+    command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python -m uvicorn entry:app --host 0.0.0.0 --port 8000"]
     ports:
-      - "6861:7860"
+      - "6861:8000"
     volumes:
       - /TTD-Data/voxcpm:/TTD-Data/voxcpm
       - /TTD-Data/voxcpm/local:/root/.local
       - /TTD-Data/voxcpm/cache:/root/.cache
-      - /TTD/04_应用/voxcpm/lora:/app/lora
-      - /TTD/04_应用/voxcpm/data:/app/data
     restart: unless-stopped
+    labels:
+      caddy: "http://voxcpm-api"
+      caddy.reverse_proxy: "{{upstreams 8000}}"
     networks:
       - caddy
 

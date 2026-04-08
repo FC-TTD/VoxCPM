@@ -222,7 +222,7 @@ class VoxCPMModel(nn.Module):
                 raise ValueError("VoxCPMModel can only be optimized on CUDA device")
             try:
                 import triton
-            except:
+            except ImportError:
                 raise ValueError("triton is not installed")
             self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode="reduce-overhead", fullgraph=True)
             self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step, mode="reduce-overhead", fullgraph=True)

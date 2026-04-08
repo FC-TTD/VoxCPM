@@ -157,7 +157,7 @@ def scan_lora_checkpoints(root_dir="lora", with_info=False):
                         with open(lora_config_file, "r", encoding="utf-8") as f:
                             lora_info = json.load(f)
                         base_model = lora_info.get("base_model", "Unknown")
-                    except:
+                    except (json.JSONDecodeError, OSError):
                         pass
                 checkpoints.append((rel_path, base_model))
             else:

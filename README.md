@@ -11,7 +11,11 @@
 
 <div align="center">
   <img src="assets/voxcpm_logo.png" alt="VoxCPM Logo" width="40%">
+  
+  <a href="https://trendshift.io/repositories/17704" target="_blank"><img src="https://trendshift.io/api/badge/repositories/17704" alt="OpenBMB%2FVoxCPM | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </div>
+
+
 
 <div align="center">
 
@@ -20,6 +24,8 @@
 </div>
 
 ## News 
+
+* [2026.03.30] **VoxCPM2 is comming soon** 🤗
 * [2025.12.05] 🎉 🎉 🎉  We Open Source the VoxCPM1.5 [weights](https://huggingface.co/openbmb/VoxCPM1.5)! The model now supports both full-parameter fine-tuning and efficient LoRA fine-tuning, empowering you to create your own tailored version. See [Release Notes](docs/release_note.md) for details.
 * [2025.09.30] 🔥 🔥 🔥  We Release VoxCPM [Technical Report](https://arxiv.org/abs/2509.24650)!
 * [2025.09.16] 🔥 🔥 🔥  We Open Source the VoxCPM-0.5B [weights](https://huggingface.co/openbmb/VoxCPM-0.5B)!
@@ -239,8 +245,8 @@ Please stay tuned for updates!
 - [x] Release the VoxCPM technical report.
 - [x] Support higher sampling rate (44.1kHz in VoxCPM-1.5).
 - [x] Support SFT and LoRA fine-tuning.
-- [] Multilingual Support (besides ZH/EN).
-- [] Controllable Speech Generation by Human Instruction.
+- [ ] Multilingual Support (besides ZH/EN).
+- [ ] Controllable Speech Generation by Human Instruction.
 
 
 

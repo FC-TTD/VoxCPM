@@ -1,10 +1,12 @@
+name: voxcpm-combined
+
 services:
   demo:
     image: voxcpm-demo:latest
-    container_name: voxcpm-demo
+    container_name: voxcpm-combined
     environment:
       - TZ=Asia/Shanghai
-      - NVIDIA_VISIBLE_DEVICES=1
+      - NVIDIA_VISIBLE_DEVICES=2
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_MOUNT_PATH=/gradio
       - HF_REPO_ID=openbmb/VoxCPM2

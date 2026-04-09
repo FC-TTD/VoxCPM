@@ -70,7 +70,7 @@
     image_name: "api"
     image_tag: "latest"
     dockerfile: "api/Dockerfile.api"
-    compose_file: "docker/stack.yaml" # Reused
+    compose_file: "docker/stack.yml" # Reused
     
     ci_rsync_opts:
       - "--exclude=*/__pycache__"

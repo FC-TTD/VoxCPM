@@ -3,7 +3,6 @@ import sys
 import logging
 import asyncio
 import tempfile
-import inspect
 from contextlib import asynccontextmanager
 from typing import Optional
 from io import BytesIO
@@ -22,6 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 
 from voxcpm import VoxCPM
 from voxcpm.model.voxcpm import LoRAConfig
+from voxcpm.model.voxcpm2 import VoxCPM2Model
 from .lora_manager import LoRAManager
 
 # Logging setup
@@ -110,11 +110,7 @@ def _get_input_sample_rate(model) -> int:
 
 
 def _supports_reference_audio(model) -> bool:
-    try:
-        parameters = inspect.signature(model.generate).parameters
-    except (TypeError, ValueError):
-        return False
-    return "reference_wav_path" in parameters
+    return isinstance(getattr(model, "tts_model", None), VoxCPM2Model)
 
 
 def _build_generation_kwargs(
@@ -173,7 +169,6 @@ async def lifespan(app: FastAPI):
             load_denoiser=True, 
             optimize=False,
             lora_config=lora_config,
-            device=device
         )
         logger.info("VoxCPM model loaded successfully.")
         return model
@@ -215,6 +210,7 @@ async def generate(
     denoise: bool = Form(False), # Input prompt denoising
     postprocess: bool = Form(True), # Output audio post-processing
     trim_silence: bool = Form(True), # Output silence trimming
+    lufs: float = Form(-23.0),
 ):
     if not model_manager:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
@@ -304,7 +300,7 @@ async def generate(
 
             if postprocess:
                 try:
-                    wav_np, _ = _loudnorm(wav_np, sr)
+                    wav_np, _ = _loudnorm(wav_np, sr, target_loudness=float(lufs))
                     wav_np = _eq(wav_np, sr)
                 except Exception as e:
                     logger.warning(f"Postprocess failed: {e}")

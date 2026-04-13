@@ -57,6 +57,7 @@ Generate audio from text.
 | `denoise` | bool | True | Denoise prompt audio before processing. |
 | `postprocess` | bool | True | Enable output loudness norm and EQ. |
 | `trim_silence` | bool | True | Trim silence from the start/end of generated audio. |
+| `lufs` | float | -23.0 | Target loudness for post-processing loudnorm, in LUFS. |
 
 **Response:**
 Returns `audio/wav` file. The output sample rate follows the loaded model, typically 48kHz on VoxCPM2.

@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 
 from voxcpm import VoxCPM
 from voxcpm.model.voxcpm import LoRAConfig
+from voxcpm.model.voxcpm2 import VoxCPM2Model
 from .lora_manager import LoRAManager
 
 # Logging setup
@@ -84,6 +85,55 @@ def preprocess_audio(file_path: str, target_sr: int = 16000) -> str:
         logger.error(f"Preprocessing failed for {file_path}: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid audio file: {e}")
 
+def _get_input_sample_rate(model) -> int:
+    tts_model = getattr(model, "tts_model", None)
+    if tts_model is None:
+        return 16000
+    return int(getattr(tts_model, "_encode_sample_rate", getattr(tts_model, "sample_rate", 16000)))
+
+
+def _supports_reference_audio(model) -> bool:
+    return isinstance(getattr(model, "tts_model", None), VoxCPM2Model)
+
+
+def _build_generation_kwargs(
+    model,
+    *,
+    text: str,
+    control: Optional[str],
+    prompt_wav_path: Optional[str],
+    prompt_text: Optional[str],
+    reference_wav_path: Optional[str],
+    cfg_value: float,
+    inference_timesteps: int,
+    normalize: bool,
+    denoise: bool,
+) -> dict:
+    final_text = text
+    if control and control.strip():
+        final_text = f"({control.strip()}){text}"
+
+    kwargs = {
+        "text": final_text,
+        "prompt_wav_path": prompt_wav_path,
+        "prompt_text": prompt_text,
+        "cfg_value": cfg_value,
+        "inference_timesteps": inference_timesteps,
+        "normalize": normalize,
+        "denoise": denoise,
+    }
+
+    if reference_wav_path:
+        if not _supports_reference_audio(model):
+            raise HTTPException(
+                status_code=400,
+                detail="Current model runtime does not support reference_audio. Upgrade to a VoxCPM2-compatible runtime first.",
+            )
+        kwargs["reference_wav_path"] = reference_wav_path
+
+    return kwargs
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model_manager, lora_manager
@@ -103,7 +153,6 @@ async def lifespan(app: FastAPI):
             load_denoiser=True, 
             optimize=False,
             lora_config=lora_config,
-            device=device
         )
         logger.info("VoxCPM model loaded successfully.")
         return model
@@ -143,6 +192,7 @@ async def generate(
     denoise: bool = Form(False), # Input prompt denoising
     postprocess: bool = Form(True), # Output audio post-processing
     trim_silence: bool = Form(True), # Output silence trimming
+    lufs: float = Form(-23.0),
 ):
     if not model_manager:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
@@ -219,7 +269,7 @@ async def generate(
 
             if postprocess:
                 try:
-                    wav_np, _ = _loudnorm(wav_np, sr)
+                    wav_np, _ = _loudnorm(wav_np, sr, target_loudness=float(lufs))
                     wav_np = _eq(wav_np, sr)
                 except Exception as e:
                     logger.warning(f"Postprocess failed: {e}")

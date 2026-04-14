@@ -1,12 +1,12 @@
 ---
-- name: 在 ttd-worker 上部署 VoxCPM Demo（docker build + compose）
+- name: 在 ttd-worker 上部署 VoxCPM Fusion（docker build + compose）
   hosts: ttd-worker
   gather_facts: yes
   vars:
     project_name: "voxcpm"
     project_path: "{{ playbook_dir }}/.."
     remote_project_path: "/opt/voxcpm"
-    image_name: "voxcpm-demo"
+    image_name: "voxcpm-fusion"
     image_tag: "latest"
 
     rsync_opts:
@@ -23,6 +23,8 @@
       - "--include=assets/**"
       - "--include=api/"
       - "--include=api/**"
+      - "--include=funasr/"
+      - "--include=funasr/**"
       - "--include=app.py"
       - "--include=entry.py"
       - "--include=lora_ft_webui.py"
@@ -82,6 +84,8 @@
       - "--include=src/**"
       - "--include=api/"
       - "--include=api/**"
+      - "--include=funasr/"
+      - "--include=funasr/**"
       - "--include=conf/"
       - "--include=conf/**"
       - "--include=pyproject.toml"

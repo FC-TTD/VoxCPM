@@ -270,6 +270,8 @@ python app.py --device auto
 
 Supported values are `auto`, `cpu`, `mps`, `cuda`, and `cuda:N`. On Apple Silicon Macs, `auto` uses MPS when available.
 
+Note: this repository vendors a local `funasr` shim for demo ASR. Calls that look like `funasr.AutoModel(model="iic/SenseVoiceSmall")` are intentionally mocked to the internal ASR service at `http://asrpri-api/api/v1/asr`, so you should not reinstall the external `funasr` package for the demo path.
+
 ### 🚢 Production Deployment (Nano-vLLM)
 
 For high-throughput serving, use **[Nano-vLLM-VoxCPM](https://github.com/a710128/nanovllm-voxcpm)** — a dedicated inference engine built on Nano-vLLM with concurrent request support and an async API.

@@ -44,6 +44,7 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install . --no-deps
 
+COPY funasr ./funasr
 COPY api ./api
 COPY scripts ./scripts
 COPY conf ./conf

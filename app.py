@@ -238,6 +238,16 @@ class VoxCPMDemo:
         self._model_id = model_id
 
     def get_or_load_voxcpm(self) -> voxcpm.VoxCPM:
+        try:
+            from api.server import model_manager
+            if model_manager is not None:
+                logger.debug("Using shared model_manager from api.server")
+                return model_manager.get()
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Could not use api.server model_manager: {e}")
+
         if self.voxcpm_model is not None:
             return self.voxcpm_model
         logger.info(f"Loading model: {self._model_id}")

@@ -36,6 +36,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY app.py ./
 COPY entry.py ./
+COPY funasr ./funasr
 COPY api ./api
 COPY lora_ft_webui.py ./
 COPY scripts ./scripts

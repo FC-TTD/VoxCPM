@@ -241,6 +241,8 @@ voxcpm --help
 python app.py   # 然后打开 http://localhost:7860
 ```
 
+说明：本仓库内置了一个本地 `funasr` shim 供 Demo ASR 使用。代码里看起来像 `funasr.AutoModel(model="iic/SenseVoiceSmall")` 的调用，实际会转发到内部 ASR 服务 `http://asrpri-api/api/v1/asr`，因此 Demo 路径不应重新安装外部 `funasr` 包。
+
 ### 🚢 生产部署（Nano-vLLM）
 
 如需高吞吐量部署，使用 [**Nano-vLLM-VoxCPM**](https://github.com/a710128/nanovllm-voxcpm) — 基于 Nano-vLLM 构建的专用推理引擎，支持并发请求和异步 API。

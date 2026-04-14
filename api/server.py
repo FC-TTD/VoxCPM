@@ -60,7 +60,7 @@ model_manager: Optional[SmartModel] = None
 lora_manager: Optional[LoRAManager] = None
 
 # Environment variables
-MODEL_PATH = os.environ.get("VOXCPM_MODEL_PATH", "openbmb/VoxCPM2")
+MODEL_PATH = os.environ.get("VOXCPM_MODEL_DIR", "openbmb/VoxCPM2")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def _resolve_device() -> str:

@@ -13,6 +13,12 @@ sys.path.insert(0, str(PROJECT_ROOT)) # For api module
 
 # Mock voxcpm module to avoid loading real model
 sys.modules["voxcpm"] = MagicMock()
+sys.modules["voxcpm.model"] = MagicMock()
+class DummyVoxCPM2Model: pass
+import types
+m = types.ModuleType("voxcpm.model.voxcpm2")
+m.VoxCPM2Model = DummyVoxCPM2Model
+sys.modules["voxcpm.model.voxcpm2"] = m
 sys.modules["voxcpm.model.voxcpm"] = MagicMock()
 
 # Now import app
@@ -25,8 +31,10 @@ client = TestClient(app)
 def mock_model():
     # Setup the mock model
     mock = MagicMock()
+    mock.tts_model = DummyVoxCPM2Model()
     mock.tts_model.sample_rate = 16000
     mock.tts_model._encode_sample_rate = 16000
+    mock.generate = MagicMock()
     mock.generate.return_value = np.zeros(16000, dtype=np.float32)
     
     # Setup mock model manager with get() method

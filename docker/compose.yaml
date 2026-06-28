@@ -1,0 +1,30 @@
+name: voxcpm-combined
+
+services:
+  fusion:
+    image: voxcpm-fusion:latest
+    container_name: voxcpm-combined
+    environment:
+      - TZ=Asia/Shanghai
+      - NVIDIA_VISIBLE_DEVICES=1
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_MOUNT_PATH=/gradio
+      - HF_REPO_ID=openbmb/VoxCPM2
+      - VOXCPM_MODEL_DIR=/app/models/openbmb__VoxCPM2
+    command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python -m uvicorn entry:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "6861:8000"
+    volumes:
+      - /TTD-Data/voxcpm:/TTD-Data/voxcpm
+      - /TTD-Data/voxcpm/local:/root/.local
+      - /TTD-Data/voxcpm/cache:/root/.cache
+    restart: unless-stopped
+    labels:
+      caddy: "http://voxcpm-api"
+      caddy.reverse_proxy: "{{upstreams 8000}}"
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true

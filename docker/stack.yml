@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  api-1:
+    image: voxcpm-api:latest
+    environment:
+      - TZ=Asia/Shanghai
+      - NVIDIA_VISIBLE_DEVICES=2
+      - VOXCPM_MODEL_PATH=openbmb/VoxCPM2
+    command: ["bash", "-lc", "ln -sfn /TTD-Data/voxcpm/models /app/models && python -m uvicorn api.server:app --host 0.0.0.0 --port 8000"]
+    volumes:
+      - /TTD-Data/voxcpm:/TTD-Data/voxcpm
+      - /TTD-Data/voxcpm/local:/root/.local
+      - /TTD-Data/voxcpm/cache:/root/.cache
+      - /TTD-Data/voxcpm/lora:/app/lora
+    networks:
+      - caddy
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == ttd-edge
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+      labels:
+        caddy: "http://voxcpm-api"
+        caddy.reverse_proxy: "{{upstreams 8000}}"
+
+networks:
+  caddy:
+    external: true

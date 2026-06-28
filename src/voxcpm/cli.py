@@ -11,11 +11,6 @@ import os
 import sys
 from pathlib import Path
 
-import soundfile as sf
-
-from voxcpm.core import VoxCPM
-
-
 DEFAULT_HF_MODEL_ID = "openbmb/VoxCPM2"
 
 # -----------------------------
@@ -173,7 +168,9 @@ def validate_batch_args(args, parser):
 # -----------------------------
 
 
-def load_model(args) -> VoxCPM:
+def load_model(args):
+    from voxcpm.core import VoxCPM
+
     print("Loading VoxCPM model...", file=sys.stderr)
 
     zipenhancer_path = getattr(args, "zipenhancer_path", None) or os.environ.get(
@@ -209,6 +206,7 @@ def load_model(args) -> VoxCPM:
                 zipenhancer_model_path=zipenhancer_path,
                 enable_denoiser=not args.no_denoiser,
                 optimize=not args.no_optimize,
+                device=args.device,
                 lora_config=lora_config,
                 lora_weights_path=lora_weights_path,
             )
@@ -227,6 +225,7 @@ def load_model(args) -> VoxCPM:
             cache_dir=args.cache_dir,
             local_files_only=args.local_files_only,
             optimize=not args.no_optimize,
+            device=args.device,
             lora_config=lora_config,
             lora_weights_path=lora_weights_path,
         )
@@ -264,6 +263,8 @@ def _run_single(args, parser, *, text: str, output: str, prompt_text: str | None
         and (args.prompt_audio is not None or args.reference_audio is not None),
     )
 
+    import soundfile as sf
+
     sf.write(str(output_path), audio_array, model.tts_model.sample_rate)
 
     duration = len(audio_array) / model.tts_model.sample_rate
@@ -286,7 +287,27 @@ def cmd_clone(args, parser):
     )
 
 
+def cmd_validate(args, parser):
+    from voxcpm.training.validate import (
+        print_validation_report,
+        validate_manifest,
+    )
+
+    manifest = str(require_file_exists(args.manifest, parser, "manifest file"))
+    result = validate_manifest(
+        manifest_path=manifest,
+        sample_rate=args.sample_rate,
+        max_samples=args.max_samples,
+        verbose=args.verbose,
+    )
+    print_validation_report(result, manifest)
+    if not result.is_valid:
+        sys.exit(1)
+
+
 def cmd_batch(args, parser):
+    import soundfile as sf
+
     input_file = require_file_exists(args.input, parser, "input file")
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -402,6 +423,12 @@ def _add_model_args(parser):
         type=str,
         default=DEFAULT_HF_MODEL_ID,
         help=f"Hugging Face repo id (default: {DEFAULT_HF_MODEL_ID})",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        help="Runtime device: auto, cpu, mps, cuda, or cuda:N (default: auto)",
     )
     parser.add_argument(
         "--cache-dir", type=str, help="Cache directory for Hub downloads"
@@ -524,6 +551,30 @@ Examples:
     _add_model_args(batch_parser)
     _add_lora_args(batch_parser)
 
+    # Validate subcommand
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Validate a training data manifest (JSONL) before fine-tuning",
+    )
+    validate_parser.add_argument(
+        "--manifest", "-m", required=True, help="Path to JSONL training manifest"
+    )
+    validate_parser.add_argument(
+        "--sample-rate",
+        type=int,
+        default=16_000,
+        help="Expected audio sample rate in Hz (default: 16000)",
+    )
+    validate_parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=0,
+        help="Maximum number of samples to validate (0 = all, default: 0)",
+    )
+    validate_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Print per-sample progress"
+    )
+
     # Legacy root arguments
     parser.add_argument("--input", "-i", help="Input text file (batch mode only)")
     parser.add_argument(
@@ -575,6 +626,9 @@ def _dispatch_legacy(args, parser):
 def main():
     parser = _build_parser()
     args = parser.parse_args()
+
+    if args.command == "validate":
+        return cmd_validate(args, parser)
 
     validate_ranges(args, parser)
 

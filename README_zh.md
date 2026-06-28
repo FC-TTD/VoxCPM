@@ -46,7 +46,7 @@ VoxCPM 是一个**无离散音频分词器**（Tokenizer-Free）的语音合成�
 - 🎙️ **极致克隆** — 提供参考音频及其文本内容，模型接着参考音频进行无缝续写，从而精准还原声音细节特征（与 VoxCPM1.5 一致）
 - 🔊 **48kHz 高质量音频** — 输入 16kHz 参考音频，通过 AudioVAE V2 的非对称编解码设计直接输出 48kHz 高质量音频，内置超分能力
 - 🧠 **语境感知合成** — 根据文本内容自动推断合适的韵律和表现力
-- ⚡ **实时流式合成** — 在 NVIDIA RTX 4090 上 RTF 低至 ~0.3，通过 [Nano-VLLM](https://github.com/a710128/nanovllm-voxcpm) 加速后可达 ~0.13
+- ⚡ **实时流式合成** — 在 NVIDIA RTX 4090 上 RTF 低至 ~0.3，通过 [Nano-vLLM](https://github.com/a710128/nanovllm-voxcpm) 或 [vLLM-Omni](https://github.com/vllm-project/vllm-omni)（官方 vLLM 全模态服务，原生支持 VoxCPM2，提供 PagedAttention 与 OpenAI 兼容 API）加速后可达 ~0.13
 - 📜 **完全开源，商用就绪** — 权重和代码基于 [Apache-2.0](LICENSE) 协议发布，免费商用
 
 <summary><b>🌍 支持的语言（30种）</b></summary>
@@ -58,7 +58,7 @@ VoxCPM 是一个**无离散音频分词器**（Tokenizer-Free）的语音合成�
 
 ### 最新动态
 
-* **[2026.04]** 🔥 发布 **VoxCPM2** — 20亿参数，30种语言，音色设计与可控声音克隆，48kHz 音频输出！[模型权重](https://huggingface.co/openbmb/VoxCPM2) | [使用文档](https://voxcpm.readthedocs.io/zh-cn/latest/) | [在线体验](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) | [官网体验](https://voxcpm.modelbest.cn/) (适用国内访问)
+* **[2026.04]** 🔥 发布 **VoxCPM2** — 20亿参数，30种语言，音色设计与可控声音克隆，48kHz 音频输出！[模型权重](https://huggingface.co/openbmb/VoxCPM2) | [使用文档](https://voxcpm.readthedocs.io/zh-cn/latest/) | [在线体验](https://huggingface.co/spaces/OpenBMB/VoxCPM-Demo) | [官网体验](https://voxcpm.modelbest.cn/) (适用国内访问) | [技术报告](https://arxiv.org/abs/2606.06928)
 * **[2025.12]** 🎉 开源 **VoxCPM1.5** [模型权重](https://huggingface.co/openbmb/VoxCPM1.5)，支持 SFT 和 LoRA 微调。(**🏆 GitHub Trending #1**)
 * **[2025.09]** 🔥 发布 VoxCPM [技术报告](https://arxiv.org/abs/2509.24650)。
 * **[2025.09]** 🎉 开源 **VoxCPM-0.5B** [模型权重](https://huggingface.co/openbmb/VoxCPM-0.5B) (**🏆 HuggingFace Trending #1**)
@@ -91,7 +91,7 @@ VoxCPM 是一个**无离散音频分词器**（Tokenizer-Free）的语音合成�
 pip install voxcpm
 ```
 
-> **环境要求：** Python ≥ 3.10，PyTorch ≥ 2.5.0，CUDA ≥ 12.0。详见 [快速开始文档](https://voxcpm.readthedocs.io/zh-cn/latest/quickstart.html)。
+> **环境要求：** Python ≥ 3.10 (<3.13)，PyTorch ≥ 2.5.0，CUDA ≥ 12.0。详见 [快速开始文档](https://voxcpm.readthedocs.io/zh-cn/latest/quickstart.html)。
 
 ### Python API
 
@@ -122,12 +122,12 @@ pip install modelscope
 ```
 
 ```python
-from modelscope.hub.snapshot_download import snapshot_download
+from modelscope import snapshot_download
+snapshot_download("OpenBMB/VoxCPM2", local_dir='./pretrained_models/VoxCPM2') # 指定模型保存的本地路径
+
 from voxcpm import VoxCPM
 import soundfile as sf
-
-local_model_dir = snapshot_download("OpenBMB/VoxCPM2")
-model = VoxCPM.from_pretrained(local_model_dir, load_denoiser=False)
+model = VoxCPM.from_pretrained('./pretrained_models/VoxCPM2', load_denoiser=False)
 
 wav = model.generate(
     text="VoxCPM2 是目前推荐使用的多语言语音合成版本。",
@@ -238,10 +238,18 @@ voxcpm --help
 ### Web Demo
 
 ```bash
-python app.py   # 然后打开 http://localhost:7860
+python app.py --port 8808  # 然后在浏览器打开 http://localhost:8808
 ```
 
 说明：本仓库内置了一个本地 `funasr` shim 供 Demo ASR 使用。代码里看起来像 `funasr.AutoModel(model="iic/SenseVoiceSmall")` 的调用，实际会转发到内部 ASR 服务 `http://asrpri-api/api/v1/asr`，因此 Demo 路径不应重新安装外部 `funasr` 包。
+
+使用 `--device` 选择运行设备：
+
+```bash
+python app.py --device auto
+```
+
+支持的取值包括 `auto`、`cpu`、`mps`、`cuda` 和 `cuda:N`。在 Apple Silicon Mac 上，`auto` 会在可用时使用 MPS。
 
 ### 🚢 生产部署（Nano-vLLM）
 
@@ -262,6 +270,32 @@ server.stop()
 ```
 
 > **在 NVIDIA RTX 4090 上 RTF 低至 ~0.13**（标准 PyTorch 实现约 ~0.3），支持批量并发请求和 FastAPI HTTP 服务。详见 [Nano-vLLM-VoxCPM 仓库](https://github.com/a710128/nanovllm-voxcpm)。
+
+### 🏭 生产环境部署（vLLM-Omni）
+
+如需生产级多租户部署，使用 [**vLLM-Omni**](https://github.com/vllm-project/vllm-omni) — 官方 vLLM 项目的全模态扩展，原生支持 **VoxCPM2**。具备 PagedAttention KV 缓存、连续批处理，以及与 OpenAI 完全兼容的 `/v1/audio/speech` 接口。
+
+```bash
+# 从源码安装（最新 main 分支 —— vllm-omni 正在快速迭代）
+uv pip install vllm==0.19.0 --torch-backend=auto
+git clone https://github.com/vllm-project/vllm-omni.git && cd vllm-omni
+uv pip install -e .
+```
+
+其他平台（ROCm、XPU、MUSA、NPU）与 Docker 镜像请参考 [vLLM-Omni 安装文档](https://vllm-omni.readthedocs.io/en/latest/getting_started/installation/)。
+
+```bash
+# 启动 OpenAI 兼容的 TTS 服务（--omni 启用全模态服务）
+vllm serve openbmb/VoxCPM2 --omni --port 8000
+
+# 任意 OpenAI 客户端均可调用
+curl http://localhost:8000/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{"model":"openbmb/VoxCPM2","input":"你好，欢迎使用 VoxCPM2 on vLLM-Omni！","voice":"default"}' \
+  --output out.wav
+```
+
+> 基于上游 vLLM 调度器构建，开箱即用支持批量并发、流式分块输出和多 GPU 部署。完整示例见 [VoxCPM2 部署样例](https://github.com/vllm-project/vllm-omni/tree/main/examples/online_serving/voxcpm2)。
 
 > **完整参数说明、多场景示例与声音克隆技巧 →** [快速开始指南](https://voxcpm.readthedocs.io/zh-cn/latest/quickstart.html) | [使用指南](https://voxcpm.readthedocs.io/zh-cn/latest/usage_guide.html) | [Cookbook](https://voxcpm.readthedocs.io/zh-cn/latest/cookbook.html)
 
@@ -284,13 +318,13 @@ server.stop()
 | **RTF Nano-VLLM (RTX 4090)** | ~0.13 | ~0.08 | ~0.10 |
 | **显存占用** | ~8 GB | ~6 GB | ~5 GB |
 | **模型权重** | [🤗 HF](https://huggingface.co/openbmb/VoxCPM2) / [MS](https://modelscope.cn/models/OpenBMB/VoxCPM2) | [🤗 HF](https://huggingface.co/openbmb/VoxCPM1.5) / [MS](https://modelscope.cn/models/OpenBMB/VoxCPM1.5) | [🤗 HF](https://huggingface.co/openbmb/VoxCPM-0.5B) / [MS](https://modelscope.cn/models/OpenBMB/VoxCPM-0.5B) |
-| **技术报告** | 即将发布 | — | [arXiv](https://arxiv.org/abs/2509.24650) [ICLR 2026](https://openreview.net/forum?id=h5KLpGoqzC) |
+| **技术报告** | [arXiv](https://arxiv.org/abs/2606.06928) | — | [arXiv](https://arxiv.org/abs/2509.24650) [ICLR 2026](https://openreview.net/forum?id=h5KLpGoqzC) |
 | **Demo 页面** | [音频示例](https://openbmb.github.io/voxcpm2-demopage) | — | [音频示例](https://openbmb.github.io/VoxCPM-demopage) |
 
 VoxCPM2 采用**连续音频表征、扩散自回归**范式，模型在 **AudioVAE** 的连续隐空间中通过四阶段处理：**LocEnc → TSLM → RALM → LocDiT**，实现丰富的表现力语音合成和 48kHz 原生音频输出。
 
 <div align="center">
-  <img src="assets/voxcpm_model.png" alt="VoxCPM2 模型架构" width="90%">
+  <img src="assets/voxcpm2_model.png" alt="VoxCPM2 模型架构" width="90%">
 </div>
 
 > 完整架构细节、VoxCPM2 升级内容和模型对比表见 [架构设计文档](https://voxcpm.readthedocs.io/zh-cn/latest/models/architecture.html)。
@@ -416,10 +450,54 @@ VoxCPM2 在公开的零样本和可控 TTS 基准测试中取得了 SOTA 或可�
 
 </details>
 
+### Internal 30-Language ASR Benchmark
+
+我们额外进行了内部多语言可懂度评测：**30 语种 × 500 样本**，ASR 转写评估使用 **Gemini 3.1 Flash Lite API**。
+
+<details>
+<summary><b>内部30语种评测集ASR结果（点击展开）</b></summary>
+
+| 语言 | 指标 | VoxCPM2 | Fish S2-Pro |
+|---|---:|---:|---:|
+| ar (阿拉伯语) | CER | 1.23% | 0.30% |
+| da (丹麦语) | WER | 2.70% | 3.52% |
+| de (德语) | WER | 0.96% | 0.64% |
+| el (希腊语) | WER | 3.17% | 4.61% |
+| en (英语) | WER | 0.42% | 1.03% |
+| es (西班牙语) | WER | 1.33% | 0.64% |
+| fi (芬兰语) | WER | 2.24% | 2.80% |
+| fr (法语) | WER | 2.16% | 2.34% |
+| he (希伯来语) | CER | 2.98% | 15.27% |
+| hi (印地语) | CER | 0.79% | 0.91% |
+| id (印尼语) | WER | 1.36% | 1.68% |
+| it (意大利语) | WER | 1.65% | 1.08% |
+| ja (日语) | CER | 2.40% | 1.82% |
+| km (高棉语) | CER | 2.05% | 75.15% |
+| ko (韩语) | CER | 0.95% | 0.29% |
+| lo (老挝语) | CER | 1.90% | 87.40% |
+| ms (马来语) | WER | 1.75% | 1.41% |
+| my (缅甸语) | CER | 1.42% | 85.27% |
+| nl (荷兰语) | WER | 1.25% | 1.68% |
+| no (挪威语) | WER | 2.49% | 3.76% |
+| pl (波兰语) | WER | 1.90% | 1.65% |
+| pt (葡萄牙语) | WER | 1.48% | 1.49% |
+| ru (俄语) | WER | 0.90% | 0.86% |
+| sv (瑞典语) | WER | 2.22% | 2.63% |
+| sw (斯瓦希里语) | CER | 1.07% | 2.02% |
+| th (泰语) | CER | 0.94% | 1.92% |
+| tl (菲律宾语) | WER | 2.63% | 4.00% |
+| tr (土耳其语) | WER | 1.65% | 1.65% |
+| vi (越南语) | WER | 1.56% | 5.56% |
+| zh (中文) | CER | 0.92% | 1.02% |
+| 平均（30 语种） |  | **1.68%** | - |
+
+</details>
+
+
 ### InstructTTSEval
 
 <details>
-<summary><b>指令驱动音色设计结果</b></summary>
+<summary><b>指令驱动音色设计结果 (点击展开)</b></summary>
 
 | Model | InstructTTSEval-ZH | | | InstructTTSEval-EN | | |
 |-------|:---:|:----:|:----:|:----:|:----:|:----:|
@@ -479,11 +557,13 @@ python lora_ft_webui.py   # 然后打开 http://localhost:7860
 | 项目 | 说明 |
 |---|---|
 | [**Nano-vLLM**](https://github.com/a710128/nanovllm-voxcpm) | 高吞吐快速 GPU 推理引擎 |
+| [**vLLM-Omni**](https://github.com/vllm-project/vllm-omni) | 官方 vLLM 全模态服务（原生支持 VoxCPM2）— PagedAttention、OpenAI 兼容 API |
 | [**VoxCPM.cpp**](https://github.com/bluryar/VoxCPM.cpp) | GGML/GGUF：CPU、CUDA、Vulkan 推理 |
 | [**VoxCPM-ONNX**](https://github.com/bluryar/VoxCPM-ONNX) | ONNX 导出，支持 CPU 推理 |
 | [**VoxCPMANE**](https://github.com/0seba/VoxCPMANE) | Apple Neural Engine 后端 |
 | [**voxcpm_rs**](https://github.com/madushan1000/voxcpm_rs) | Rust 重新实现 |
 | [**ComfyUI-VoxCPM**](https://github.com/wildminder/ComfyUI-VoxCPM) | ComfyUI 节点工作流 |
+| [**ComfyUI_RH_VoxCPM**](https://github.com/HM-RunningHub/ComfyUI_RH_VoxCPM) | 面向 VoxCPM 2 的功能更完整的 ComfyUI 工作流，支持多说话人、LoRA 和自动 ASR |
 | [**ComfyUI-VoxCPMTTS**](https://github.com/1038lab/ComfyUI-VoxCPMTTS) | ComfyUI TTS 扩展 |
 | [**TTS WebUI**](https://github.com/rsxdalv/tts_webui_extension.vox_cpm) | 浏览器端 TTS 扩展 |
 
@@ -505,21 +585,18 @@ python lora_ft_webui.py   # 然后打开 http://localhost:7860
 如果 VoxCPM 对您有帮助，请考虑引用我们的工作并为仓库加星 ⭐！
 
 ```bib
-@article{voxcpm2_2026,
-  title   = {VoxCPM2: Tokenizer-Free TTS for Multilingual Speech Generation, Creative Voice Design, and True-to-Life Cloning},
-  author  = {VoxCPM Team},
-  journal = {GitHub},
+@article{zhou2026voxcpm2,
+  title   = {VoxCPM2 Technical Report},
+  author  = {Zhou, Yixuan  and Zeng, Guoyang and Liu, Xin and Li, Xiang and Yu, Renjie and Gui, Jiancheng and Wu, Jiaheng and Wang, Ziyang and Shen, Xudong and Ye, Runchuan  and Zhang, Zhisheng and Zhou, Jiuyang and Bai, Bingsong and Sun, Weiyue and Deng, Mengyuan and Shi, Qundong and Wu, Zhiyong and Liu, Zhiyuan},
+  journal = {arXiv preprint arXiv:2606.06928},
   year    = {2026},
 }
 
-@article{voxcpm2025,
-  title   = {VoxCPM: Tokenizer-Free TTS for Context-Aware Speech Generation
-             and True-to-Life Voice Cloning},
-  author  = {Zhou, Yixuan and Zeng, Guoyang and Liu, Xin and Li, Xiang and
-             Yu, Renjie and Wang, Ziyang and Ye, Runchuan and Sun, Weiyue and
-             Gui, Jiancheng and Li, Kehan and Wu, Zhiyong and Liu, Zhiyuan},
+@article{zhou2025voxcpm,
+  title = {Voxcpm: Tokenizer-free TTS for context-aware speech generation and true-to-life voice cloning},
+  author = {Zhou, Yixuan and Zeng, Guoyang and Liu, Xin and Li, Xiang and Yu, Renjie and Wang, Ziyang and Ye, Runchuan and Sun, Weiyue and Gui, Jiancheng and Li, Kehan and Wu, Zhiyong and Liu, Zhiyuan},
   journal = {arXiv preprint arXiv:2509.24650},
-  year    = {2025},
+  year = {2025}
 }
 ```
 

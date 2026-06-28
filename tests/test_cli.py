@@ -54,10 +54,16 @@ def run_main(monkeypatch, argv):
     cli.main()
 
 
+def patch_soundfile_write(monkeypatch):
+    soundfile_stub = types.SimpleNamespace(write=lambda *args, **kwargs: None)
+    monkeypatch.setitem(sys.modules, "soundfile", soundfile_stub)
+
+
 def test_parser_defaults_to_voxcpm2():
     parser = cli._build_parser()
     args = parser.parse_args(["design", "--text", "hello", "--output", "out.wav"])
     assert args.hf_model_id == "openbmb/VoxCPM2"
+    assert args.device == "auto"
     assert args.no_optimize is False
 
 
@@ -69,7 +75,7 @@ def test_load_model_respects_no_optimize_for_local_model(monkeypatch):
             calls["kwargs"] = kwargs
             self.tts_model = DummyTTSModel()
 
-    monkeypatch.setattr(cli, "VoxCPM", FakeVoxCPM)
+    monkeypatch.setattr(core_stub, "VoxCPM", FakeVoxCPM)
     args = cli._build_parser().parse_args(
         [
             "design",
@@ -85,6 +91,7 @@ def test_load_model_respects_no_optimize_for_local_model(monkeypatch):
 
     cli.load_model(args)
 
+    assert calls["kwargs"]["device"] == "auto"
     assert calls["kwargs"]["optimize"] is False
 
 
@@ -97,7 +104,7 @@ def test_load_model_defaults_optimize_for_hf(monkeypatch):
             calls["kwargs"] = kwargs
             return DummyModel()
 
-    monkeypatch.setattr(cli, "VoxCPM", FakeVoxCPM)
+    monkeypatch.setattr(core_stub, "VoxCPM", FakeVoxCPM)
     args = cli._build_parser().parse_args(
         [
             "design",
@@ -110,6 +117,7 @@ def test_load_model_defaults_optimize_for_hf(monkeypatch):
 
     cli.load_model(args)
 
+    assert calls["kwargs"]["device"] == "auto"
     assert calls["kwargs"]["optimize"] is True
 
 
@@ -122,7 +130,7 @@ def test_load_model_respects_no_optimize_for_hf(monkeypatch):
             calls["kwargs"] = kwargs
             return DummyModel()
 
-    monkeypatch.setattr(cli, "VoxCPM", FakeVoxCPM)
+    monkeypatch.setattr(core_stub, "VoxCPM", FakeVoxCPM)
     args = cli._build_parser().parse_args(
         [
             "design",
@@ -136,13 +144,41 @@ def test_load_model_respects_no_optimize_for_hf(monkeypatch):
 
     cli.load_model(args)
 
+    assert calls["kwargs"]["device"] == "auto"
     assert calls["kwargs"]["optimize"] is False
+
+
+def test_load_model_passes_explicit_device_to_hf(monkeypatch):
+    calls = {}
+
+    class FakeVoxCPM:
+        @classmethod
+        def from_pretrained(cls, **kwargs):
+            calls["kwargs"] = kwargs
+            return DummyModel()
+
+    monkeypatch.setattr(core_stub, "VoxCPM", FakeVoxCPM)
+    args = cli._build_parser().parse_args(
+        [
+            "design",
+            "--text",
+            "hello",
+            "--output",
+            "out.wav",
+            "--device",
+            "mps",
+        ]
+    )
+
+    cli.load_model(args)
+
+    assert calls["kwargs"]["device"] == "mps"
 
 
 def test_design_subcommand_applies_control(monkeypatch, tmp_path):
     dummy_model = DummyModel()
     monkeypatch.setattr(cli, "load_model", lambda args: dummy_model)
-    monkeypatch.setattr(cli.sf, "write", lambda *args, **kwargs: None)
+    patch_soundfile_write(monkeypatch)
 
     run_main(
         monkeypatch,
@@ -170,7 +206,7 @@ def test_clone_subcommand_reads_prompt_file(monkeypatch, tmp_path):
     prompt_file.write_text("prompt transcript\n", encoding="utf-8")
 
     monkeypatch.setattr(cli, "load_model", lambda args: dummy_model)
-    monkeypatch.setattr(cli.sf, "write", lambda *args, **kwargs: None)
+    patch_soundfile_write(monkeypatch)
 
     run_main(
         monkeypatch,
@@ -242,7 +278,7 @@ def test_clone_rejects_reference_audio_for_v1_hf_model_id(monkeypatch, tmp_path)
 def test_legacy_root_args_still_work_and_warn(monkeypatch, tmp_path, capsys):
     dummy_model = DummyModel()
     monkeypatch.setattr(cli, "load_model", lambda args: dummy_model)
-    monkeypatch.setattr(cli.sf, "write", lambda *args, **kwargs: None)
+    patch_soundfile_write(monkeypatch)
 
     run_main(
         monkeypatch,
@@ -265,7 +301,7 @@ def test_batch_subcommand_applies_control(monkeypatch, tmp_path):
     input_file.write_text("hello\nworld\n", encoding="utf-8")
 
     monkeypatch.setattr(cli, "load_model", lambda args: dummy_model)
-    monkeypatch.setattr(cli.sf, "write", lambda *args, **kwargs: None)
+    patch_soundfile_write(monkeypatch)
 
     run_main(
         monkeypatch,
@@ -294,7 +330,7 @@ def test_legacy_clone_with_prompt_file_still_works(monkeypatch, tmp_path, capsys
     prompt_file.write_text("legacy transcript", encoding="utf-8")
 
     monkeypatch.setattr(cli, "load_model", lambda args: dummy_model)
-    monkeypatch.setattr(cli.sf, "write", lambda *args, **kwargs: None)
+    patch_soundfile_write(monkeypatch)
 
     run_main(
         monkeypatch,

@@ -3,6 +3,7 @@ import sys
 import logging
 import asyncio
 import tempfile
+import inspect
 from contextlib import asynccontextmanager
 from typing import Optional
 from io import BytesIO
@@ -110,7 +111,16 @@ def _get_input_sample_rate(model) -> int:
 
 
 def _supports_reference_audio(model) -> bool:
-    return isinstance(getattr(model, "tts_model", None), VoxCPM2Model)
+    generate = getattr(model, "generate", None)
+    try:
+        if "reference_wav_path" in inspect.signature(generate).parameters:
+            return True
+    except (TypeError, ValueError):
+        pass
+
+    tts_model = getattr(model, "tts_model", None)
+    model_module = getattr(type(tts_model), "__module__", "")
+    return isinstance(tts_model, VoxCPM2Model) and model_module.startswith("voxcpm.")
 
 
 def _build_generation_kwargs(

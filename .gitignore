@@ -181,3 +181,5 @@ Desktop.ini
 # Project specific
 launch.json
 voxcpm.egg-info
+./pretrained_models/
+app_local.py

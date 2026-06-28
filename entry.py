@@ -19,7 +19,7 @@ def _normalize_mount_path(value: str) -> str:
 GRADIO_MOUNT_PATH = _normalize_mount_path(os.environ.get("GRADIO_MOUNT_PATH", "/gradio"))
 os.environ["GRADIO_MOUNT_PATH"] = GRADIO_MOUNT_PATH
 
-demo = VoxCPMDemo(model_dir=os.environ.get("VOXCPM_MODEL_DIR") or None)
+demo = VoxCPMDemo(model_id=os.environ.get("VOXCPM_MODEL_DIR") or os.environ.get("HF_REPO_ID") or "openbmb/VoxCPM2")
 gradio_blocks = create_demo_interface(demo)
 gradio_blocks.theme = _APP_THEME
 gradio_blocks.css = _CUSTOM_CSS

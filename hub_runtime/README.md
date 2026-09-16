@@ -1,5 +1,7 @@
 # Managed VoxCPM2
 
+2026-09-16: formally managed on worker; existing domains, native API/UI and Gateway acceptance passed. Current reservation: 8.5 GiB. Full evidence: Hub `docs/proposals/model-compute-pool/worker-expansion-2026-09-16.md`. Runtime source: `b74bee6`; subsequent documentation commits do not change the deployed model image.
+
 This additive runtime is based on local source
 `8d3237afbcf2d57ab3aa07534bc168292a51785e`. Its API, UI, entrypoint, LoRA manager
 and VoxCPM2 framework match the running `/opt/voxcpm` source and formal container

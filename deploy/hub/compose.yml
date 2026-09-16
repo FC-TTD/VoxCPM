@@ -1,0 +1,61 @@
+name: voxcpm-hub
+services:
+  runtime:
+    image: ${VOXCPM_IMAGE:?fixed VoxCPM hub image}
+    container_name: voxcpm-hub-runtime
+    restart: 'no'
+    command: [bash, -lc, 'ln -sfn /TTD-Data/voxcpm/models /app/models && exec /opt/appenv/bin/python -m hub_runtime']
+    environment:
+      HUB_SERVICE_ID: voxcpm
+      HUB_RUNTIME_VERSION: ${VOXCPM_RUNTIME_VERSION:?}
+      HUB_RUNTIME_ACTOR_ID: ${VOXCPM_ACTOR_ID:?}
+      HUB_RUNTIME_TOKEN: ${HUB_VOXCPM_RUNTIME_TOKEN:?}
+      HUB_RUNTIME_STATE_DIR: /var/lib/hub-runtime/actors/${VOXCPM_ACTOR_ID:?}
+      HUB_NODE_URL: http://host.docker.internal:13912
+      HUB_CONTROL_HOST: '0.0.0.0'
+      HUB_CONTROL_PORT: '18083'
+      HUB_GPU_PROCESS: '1'
+      CUDA_VISIBLE_DEVICES: ''
+      NVIDIA_VISIBLE_DEVICES: '${GPU_0:?},${GPU_1:?},${GPU_2:?}'
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      TZ: Asia/Shanghai
+      GRADIO_SERVER_NAME: 0.0.0.0
+      GRADIO_MOUNT_PATH: /gradio
+      HF_REPO_ID: openbmb/VoxCPM2
+      VOXCPM_MODEL_DIR: /app/models/openbmb__VoxCPM2
+      TTD_WEBHOOK_URL: ''
+      GRADIO_ANALYTICS_ENABLED: 'False'
+    extra_hosts: ['host.docker.internal:host-gateway']
+    ports: ['127.0.0.1:13918:18083']
+    volumes:
+      - /opt/ttd-hub-v2/runtime-state/voxcpm:/var/lib/hub-runtime
+      - /TTD-Data/voxcpm:/TTD-Data/voxcpm
+      - /TTD-Data/voxcpm/local:/root/.local
+      - /TTD-Data/voxcpm/cache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['${GPU_0:?}', '${GPU_1:?}', '${GPU_2:?}']
+              capabilities: [gpu]
+    networks: [model]
+    labels:
+      ttd.hub.instance: voxcpm
+      ttd.hub.release: ${VOXCPM_RELEASE:?}
+      ttd.hub.dynamic_gpu: 'true'
+  entry:
+    image: ${HUB_IMAGE:?fixed Hub image}
+    container_name: voxcpm-hub-entry
+    restart: unless-stopped
+    entrypoint: [/usr/local/bin/model-entry]
+    command: [--upstream, 'http://runtime:8000', --listen, ':8080']
+    networks: [model, caddy]
+    labels:
+      ttd.hub.release: ${VOXCPM_RELEASE:?}
+      caddy_ingress_network: caddy
+      caddy: http://voxcpm-pool-validation
+      caddy.reverse_proxy: '{{upstreams 8080}}'
+networks:
+  model: {}
+  caddy: {external: true}

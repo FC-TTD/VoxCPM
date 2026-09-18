@@ -179,7 +179,7 @@ def test_describe_and_ui_import_no_torch_or_legacy_plugin():
     result=subprocess.run([sys.executable,'-c',
       "import sys;from hub_runtime.__main__ import describe;describe();from hub_runtime import ui;"
       "assert 'torch' not in sys.modules;assert 'ttd_fastapi_utils' not in sys.modules;"
-      "import funasr;assert '/candidate/funasr/' in funasr.__file__"],capture_output=True,text=True)
+      "import funasr;from pathlib import Path;assert Path(funasr.__file__).resolve().parent == Path.cwd()/'funasr'"],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
 
 

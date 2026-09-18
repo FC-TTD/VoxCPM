@@ -72,6 +72,7 @@ class FakeRuntime:
                 finally:
                     with self.lock: self.active -= 1
         return wrapped
+    def pending_work(self): return 0
     def get(self):
         assert self.active > 0, "native inference bypassed managed activity"
         return self.backend

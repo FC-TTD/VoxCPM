@@ -7,3 +7,11 @@ hub_runtime/**/*.pyc
 !deploy/hub/
 !deploy/hub/Dockerfile
 !deploy/hub/Dockerfile.dockerignore
+
+!src/
+!src/voxcpm/
+!src/voxcpm/**
+src/**/__pycache__/
+src/**/*.pyc
+!api/
+!api/lora_manager.py

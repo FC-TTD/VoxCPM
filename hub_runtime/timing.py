@@ -22,12 +22,7 @@ def apply_timing_control(
     """
     if int(sample_rate) <= 0:
         raise ValueError("sample_rate must be greater than 0")
-    speed_value = _positive_finite(speed, "speed")
-    expected_value = (
-        None
-        if expected_duration is None
-        else _positive_finite(expected_duration, "expected_duration")
-    )
+    speed_value, expected_value = validate_timing_parameters(speed, expected_duration)
 
     audio = np.asarray(wav)
     original_duration = float(len(audio)) / float(sample_rate)
@@ -62,6 +57,13 @@ def apply_timing_control(
         original_duration,
         final_duration,
         final_speed_factor,
+    )
+
+
+def validate_timing_parameters(speed=1.0, expected_duration=None):
+    return (
+        _positive_finite(speed, "speed"),
+        None if expected_duration is None else _positive_finite(expected_duration, "expected_duration"),
     )
 
 

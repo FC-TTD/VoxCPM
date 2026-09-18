@@ -116,8 +116,8 @@ def build_api(runtime):
         postprocess: bool = Form(True), # Output audio post-processing
         trim_silence: bool = Form(True), # Output silence trimming
         lufs: float = Form(-23.0),
-        speed: float = Form(1.0),
-        expected_duration: Optional[float] = Form(None),
+        speed: float = Form(1.0, gt=0, allow_inf_nan=False),
+        expected_duration: Optional[float] = Form(None, gt=0, allow_inf_nan=False),
     ):
 
         temp_prompt_path = None

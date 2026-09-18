@@ -7,7 +7,7 @@ import random
 import numpy as np
 import gradio as gr
 from typing import Optional, Tuple
-from .timing import apply_timing_control
+from .timing import apply_timing_control, validate_timing_parameters
 from funasr import AutoModel
 from pathlib import Path
 
@@ -317,6 +317,7 @@ class VoxCPMDemo:
         speed: float = 1.0,
         expected_duration: Optional[float] = None,
     ) -> Tuple[int, np.ndarray]:
+        speed, expected_duration = validate_timing_parameters(speed, expected_duration)
         current_model = self.get_or_load_voxcpm()
 
         text = (text_input or "").strip()
@@ -384,6 +385,10 @@ def create_demo_interface(demo: VoxCPMDemo):
         speed_value,
         expected_duration_value,
     ):
+        speed_value, expected_duration_value = validate_timing_parameters(
+            speed_value if speed_value not in (None, "") else 1.0,
+            expected_duration_value if expected_duration_value not in (None, "") else None,
+        )
         actual_prompt_text = prompt_text_value.strip() if use_prompt_text else ""
         actual_control = "" if use_prompt_text else control_instruction
         sr, wav_np = demo.generate_tts_audio(

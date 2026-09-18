@@ -41,3 +41,32 @@ def test_timing_controls_require_positive_finite_values(speed, expected_duration
 def test_sample_rate_must_be_positive():
     with pytest.raises(ValueError, match="sample_rate must be greater than 0"):
         apply_timing_control(tone(), 0)
+
+
+@pytest.mark.parametrize("field,value", [("speed", "0"), ("speed", "nan"), ("expected_duration", "-1"), ("expected_duration", "inf")])
+def test_invalid_timing_rejected_before_runtime_admission(field, value):
+    from fastapi.testclient import TestClient
+    from hub_runtime.api import build_api
+    class Runtime:
+        admissions = 0
+        def task(self, fn):
+            from functools import wraps
+            @wraps(fn)
+            async def wrapped(*args, **kwargs):
+                self.admissions += 1
+                raise AssertionError("invalid request reached runtime")
+            return wrapped
+    runtime = Runtime()
+    with TestClient(build_api(runtime)) as client:
+        response = client.post("/generate", data={"text": "hello", field: value})
+    assert response.status_code == 422
+    assert runtime.admissions == 0
+
+
+def test_ui_invalid_timing_does_not_get_model():
+    from hub_runtime.ui import VoxCPMDemo
+    class Runtime:
+        def task(self, fn): return fn
+        def get(self): raise AssertionError("invalid request acquired model")
+    with pytest.raises(ValueError, match="speed must be greater than 0"):
+        VoxCPMDemo(Runtime()).generate_tts_audio("hello", speed=0)

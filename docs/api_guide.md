@@ -58,7 +58,7 @@ Generate audio from text.
 | `postprocess` | bool | True | Enable output loudness norm and EQ. |
 | `trim_silence` | bool | True | Trim silence from the start/end of generated audio. |
 | `lufs` | float | -23.0 | Target loudness for post-processing loudnorm, in LUFS. |
-| `speed` | float | 1.0 | Output time-stretch factor; must be greater than 0. Values above 1.0 are faster. |
+| `speed` | float | 1.0 | Output time-stretch factor; must be positive and finite (invalid input returns 422 before inference). Values above 1.0 are faster. |
 | `expected_duration` | float | Optional | Target output duration in seconds; must be greater than 0 and takes precedence over `speed`. |
 
 **Response:**

@@ -58,9 +58,11 @@ Generate audio from text.
 | `postprocess` | bool | True | Enable output loudness norm and EQ. |
 | `trim_silence` | bool | True | Trim silence from the start/end of generated audio. |
 | `lufs` | float | -23.0 | Target loudness for post-processing loudnorm, in LUFS. |
+| `speed` | float | 1.0 | Output time-stretch factor; must be greater than 0. Values above 1.0 are faster. |
+| `expected_duration` | float | Optional | Target output duration in seconds; must be greater than 0 and takes precedence over `speed`. |
 
 **Response:**
-Returns `audio/wav` file. The output sample rate follows the loaded model, typically 48kHz on VoxCPM2.
+Returns an `audio/wav` file. The output sample rate follows the loaded model, typically 48kHz on VoxCPM2. Timing metadata is returned in `X-Speed`, `X-Expected-Duration` (when provided), `X-Original-Duration`, `X-Final-Duration`, and `X-Final-Speed-Factor` headers.
 
 **Mode combinations:**
 

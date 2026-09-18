@@ -35,6 +35,12 @@ LoRA changes serialize in one child lock. CPU input/output audio handling keeps
 the original preprocessing, silence trimming and loudness/EQ algorithms, using
 the SDK audio helpers.
 
+The `/generate` contract also supports unified output timing controls: `speed`
+(default `1.0`) applies pitch-preserving time-stretch, while
+`expected_duration` derives the required stretch factor and takes precedence when
+present. Both controls run after silence trimming and loudness/EQ post-processing;
+timing metadata is returned in response headers.
+
 The vendored `funasr/` remains required: it is an HTTP compatibility client to
 `asrpri-api`, not a local ASR model. Keep that source folder and existing assets
 in the runtime image. There is no new local ASR or training allocation.

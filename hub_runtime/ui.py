@@ -3,9 +3,11 @@ import os
 import re
 import sys
 import logging
+import random
 import numpy as np
 import gradio as gr
 from typing import Optional, Tuple
+from .timing import apply_timing_control
 from funasr import AutoModel
 from pathlib import Path
 
@@ -114,6 +116,10 @@ _I18N_TRANSLATIONS = {
         "cfg_info": "Higher → closer to the prompt / reference; lower → more creative variation",
         "dit_steps_label": "LocDiT flow-matching steps",
         "dit_steps_info": "LocDiT flow-matching steps — more steps → maybe better audio quality, but slower",
+        "speed_label": "Speed",
+        "speed_info": "Playback speed; 1.0 is unchanged.",
+        "expected_duration_label": "Expected duration (seconds)",
+        "expected_duration_info": "Optional target duration; takes precedence over Speed.",
         "usage_instructions": _USAGE_INSTRUCTIONS_EN,
         "examples_footer": _EXAMPLES_FOOTER_EN,
     },
@@ -137,6 +143,10 @@ _I18N_TRANSLATIONS = {
         "cfg_info": "数值越高 → 越贴合提示/参考音色；数值越低 → 生成风格更自由",
         "dit_steps_label": "LocDiT 流匹配迭代步数",
         "dit_steps_info": "LocDiT 流匹配生成迭代步数 — 步数越多 → 可能生成更好的音频质量，但速度变慢",
+        "speed_label": "语速",
+        "speed_info": "输出播放速度；1.0 表示保持原速。",
+        "expected_duration_label": "目标时长（秒）",
+        "expected_duration_info": "可选目标时长；填写后优先于语速。",
         "usage_instructions": _USAGE_INSTRUCTIONS_ZH,
         "examples_footer": _EXAMPLES_FOOTER_ZH,
     },
@@ -277,12 +287,14 @@ class VoxCPMDemo:
         do_normalize: bool,
         denoise: bool,
         inference_timesteps: int = 10,
+        seed: Optional[int] = None,
     ) -> dict:
         generate_kwargs = dict(
             text=final_text,
             reference_wav_path=audio_path,
             cfg_value=float(cfg_value_input),
             inference_timesteps=inference_timesteps,
+            seed=seed,
             normalize=do_normalize,
             denoise=denoise,
         )
@@ -301,6 +313,9 @@ class VoxCPMDemo:
         do_normalize: bool = True,
         denoise: bool = False,
         inference_timesteps: int = 10,
+        seed: Optional[int] = None,
+        speed: float = 1.0,
+        expected_duration: Optional[float] = None,
     ) -> Tuple[int, np.ndarray]:
         current_model = self.get_or_load_voxcpm()
 
@@ -333,8 +348,20 @@ class VoxCPMDemo:
             do_normalize=do_normalize,
             denoise=denoise,
             inference_timesteps=inference_timesteps,
+            seed=seed,
         )
-        return current_model.generate_ui(**generate_kwargs)
+        sr, wav_np = current_model.generate_ui(**generate_kwargs)
+        try:
+            wav_np, _ = apply_timing_control(
+                wav_np,
+                sr,
+                speed=speed,
+                expected_duration=expected_duration,
+            )
+        except Exception:
+            logger.exception("Timing control failed in UI generation")
+            raise
+        return sr, wav_np
 
 
 # ---------- UI ----------
@@ -353,6 +380,9 @@ def create_demo_interface(demo: VoxCPMDemo):
         do_normalize: bool,
         denoise: bool,
         dit_steps: int,
+        seed_value,
+        speed_value,
+        expected_duration_value,
     ):
         actual_prompt_text = prompt_text_value.strip() if use_prompt_text else ""
         actual_control = "" if use_prompt_text else control_instruction
@@ -365,6 +395,13 @@ def create_demo_interface(demo: VoxCPMDemo):
             do_normalize=do_normalize,
             denoise=denoise,
             inference_timesteps=int(dit_steps),
+            seed=int(seed_value) if seed_value not in (None, "") else None,
+            speed=float(speed_value) if speed_value not in (None, "") else 1.0,
+            expected_duration=(
+                float(expected_duration_value)
+                if expected_duration_value not in (None, "")
+                else None
+            ),
         )
         return (sr, wav_np)
 
@@ -463,6 +500,27 @@ def create_demo_interface(demo: VoxCPMDemo):
                         label=I18N("dit_steps_label"),
                         info=I18N("dit_steps_info"),
                     )
+                    seed_value = gr.Number(
+                        value=random.randint(0, 2**32 - 1),
+                        precision=0,
+                        label="Seed",
+                        info="固定随机种子以复现生成结果；留空则随机。",
+                    )
+                    speed_value = gr.Number(
+                        value=1.0,
+                        minimum=0.1,
+                        maximum=4.0,
+                        precision=2,
+                        label=I18N("speed_label"),
+                        info=I18N("speed_info"),
+                    )
+                    expected_duration_value = gr.Number(
+                        value=None,
+                        minimum=0.1,
+                        precision=2,
+                        label=I18N("expected_duration_label"),
+                        info=I18N("expected_duration_info"),
+                    )
 
                 run_btn = gr.Button(I18N("generate_btn"), variant="primary", size="lg")
 
@@ -492,6 +550,9 @@ def create_demo_interface(demo: VoxCPMDemo):
                 DoNormalizeText,
                 DoDenoisePromptAudio,
                 dit_steps,
+                seed_value,
+                speed_value,
+                expected_duration_value,
             ],
             outputs=[audio_output],
             show_progress=True,

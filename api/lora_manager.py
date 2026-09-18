@@ -45,11 +45,11 @@ class LoRAManager:
             return load_file(safetensors_file, device="cpu")
         elif ckpt_file and os.path.exists(ckpt_file):
             logger.debug(f"Loading ckpt from {ckpt_file}")
-            ckpt = torch.load(ckpt_file, map_location="cpu")
+            ckpt = torch.load(ckpt_file, map_location="cpu", weights_only=True)
             return ckpt.get("state_dict", ckpt)
         elif pth_file and os.path.exists(pth_file):
             logger.debug(f"Loading pth from {pth_file}")
-            ckpt = torch.load(pth_file, map_location="cpu")
+            ckpt = torch.load(pth_file, map_location="cpu", weights_only=True)
             return ckpt.get("state_dict", ckpt)
         else:
             raise FileNotFoundError(f"LoRA checkpoint not found at {lora_path}")

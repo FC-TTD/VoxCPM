@@ -13,6 +13,7 @@ import numpy as np
 import librosa
 from ttd_model_runtime import HubError
 from ttd_model_runtime.audio.postprocess import eq as _eq, loudnorm as _loudnorm, trim_silence as _trim_silence
+from .timing import apply_timing_control
 logger = logging.getLogger("voxcpm-api")
 
 
@@ -65,6 +66,7 @@ def _build_generation_kwargs(
     reference_wav_path: Optional[str],
     cfg_value: float,
     inference_timesteps: int,
+    seed: Optional[int],
     normalize: bool,
     denoise: bool,
 ) -> dict:
@@ -78,6 +80,7 @@ def _build_generation_kwargs(
         "prompt_text": prompt_text,
         "cfg_value": cfg_value,
         "inference_timesteps": inference_timesteps,
+        "seed": seed,
         "normalize": normalize,
         "denoise": denoise,
     }
@@ -107,11 +110,14 @@ def build_api(runtime):
         lora_name: Optional[str] = Form(None),
         cfg_value: float = Form(2.0),
         inference_timesteps: int = Form(10),
+        seed: Optional[int] = Form(None),
         normalize: bool = Form(True),
         denoise: bool = Form(False), # Input prompt denoising
         postprocess: bool = Form(True), # Output audio post-processing
         trim_silence: bool = Form(True), # Output silence trimming
         lufs: float = Form(-23.0),
+        speed: float = Form(1.0, gt=0, allow_inf_nan=False),
+        expected_duration: Optional[float] = Form(None, gt=0, allow_inf_nan=False),
     ):
 
         temp_prompt_path = None
@@ -175,6 +181,7 @@ def build_api(runtime):
                     reference_wav_path=preprocessed_reference_path if preprocessed_reference_path else temp_reference_path,
                     cfg_value=cfg_value,
                     inference_timesteps=inference_timesteps,
+                    seed=seed,
                     normalize=normalize,
                     denoise=denoise,
                 )
@@ -195,12 +202,33 @@ def build_api(runtime):
                     except Exception as e:
                         logger.warning(f"Postprocess failed: {e}")
 
-                # Convert to bytes
+                try:
+                    wav_np, timing_meta = apply_timing_control(
+                        wav_np,
+                        sr,
+                        speed=speed,
+                        expected_duration=expected_duration,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+                except Exception as e:
+                    logger.error(f"Timing control failed: {e}", exc_info=True)
+                    raise HTTPException(status_code=500, detail=f"Timing control failed: {e}") from e
+
+                # Convert to bytes. Timing metadata is exposed as headers so the
+                # existing audio/wav response contract remains unchanged.
                 buffer = BytesIO()
                 sf.write(buffer, wav_np, sr, format="WAV")
                 buffer.seek(0)
-                
-                return Response(content=buffer.read(), media_type="audio/wav")
+                headers = {
+                    "X-Speed": f"{timing_meta['speed']:.6f}",
+                    "X-Original-Duration": f"{timing_meta['original_duration_seconds']:.6f}",
+                    "X-Final-Duration": f"{timing_meta['final_duration_seconds']:.6f}",
+                    "X-Final-Speed-Factor": f"{timing_meta['final_speed_factor']:.6f}",
+                }
+                if timing_meta["expected_duration"] is not None:
+                    headers["X-Expected-Duration"] = f"{timing_meta['expected_duration']:.6f}"
+                return Response(content=buffer.read(), media_type="audio/wav", headers=headers)
 
         except (HTTPException, HubError):
             raise

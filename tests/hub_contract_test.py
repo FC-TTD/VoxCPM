@@ -43,19 +43,26 @@ def test_original_openapi_fields_defaults_unchanged():
     def body(schema):
         ref=schema['paths']['/generate']['post']['requestBody']['content']['multipart/form-data']['schema']['$ref']
         value=dict(schema['components']['schemas'][ref.rsplit('/',1)[-1]])
-        value.pop('title',None);return value
-    assert body(actual)==body(expected)
+        value.pop('title',None);value['properties']=dict(value['properties']);return value
+    actual_body = body(actual)
+    expected_body = body(expected)
+    for field in ("seed", "speed", "expected_duration"):
+        actual_body["properties"].pop(field, None)
+    assert actual_body == expected_body
+    assert body(actual)["properties"]["speed"]["default"] == 1.0
+    assert body(actual)["properties"]["expected_duration"].get("default") is None
 
 
 def test_api_generation_controls_prompt_reference_and_output(client,runtime):
     response=client.post('/generate',data={'text':'hello','control':'excited','cfg_value':'2.4','inference_timesteps':'12',
-        'prompt_text':'reference words','normalize':'false','denoise':'true','postprocess':'false','trim_silence':'false'},
+        'prompt_text':'reference words','normalize':'false','denoise':'true','postprocess':'false','trim_silence':'false','speed':'1.25'},
         files={'prompt_audio':('p.wav',wav_bytes(),'audio/wav'),'reference_audio':('r.wav',wav_bytes(48000),'audio/wav')})
     assert response.status_code==200,response.text
-    wav,sr=sf.read(BytesIO(response.content));assert sr==48000 and wav.size==48000
+    wav,sr=sf.read(BytesIO(response.content));assert sr==48000 and wav.size==pytest.approx(38400, abs=1200)
     call=runtime.backend.model.calls[-1]
     assert call['text']=='(excited)hello' and call['cfg_value']==2.4 and call['inference_timesteps']==12
     assert call['normalize'] is False and call['denoise'] is True
+    assert response.headers['x-speed'] == '1.250000'
     assert call['prompt_wav_path_sample_rate']==call['reference_wav_path_sample_rate']==16000
     assert not Path(call['prompt_wav_path']).exists() and not Path(call['reference_wav_path']).exists()
     assert runtime.active==0 and runtime.calls==1
@@ -172,7 +179,7 @@ def test_describe_and_ui_import_no_torch_or_legacy_plugin():
     result=subprocess.run([sys.executable,'-c',
       "import sys;from hub_runtime.__main__ import describe;describe();from hub_runtime import ui;"
       "assert 'torch' not in sys.modules;assert 'ttd_fastapi_utils' not in sys.modules;"
-      "import funasr;assert '/candidate/funasr/' in funasr.__file__"],capture_output=True,text=True)
+      "import funasr;from pathlib import Path;assert Path(funasr.__file__).resolve().parent == Path.cwd()/'funasr'"],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
 
 
@@ -210,7 +217,7 @@ def test_real_gradio_queue_upload_generation_and_file(tmp_path):
         client=Client(url+'/gradio/',verbose=False,download_files=False)
         ref=tmp_path/'ref.wav';ref.write_bytes(wav_bytes())
         for audio,prompt_enabled,prompt in [(None,False,''),(handle_file(str(ref)),False,''),(handle_file(str(ref)),True,'hello')]:
-            result=client.predict('hello','warm',audio,prompt_enabled,prompt,2,False,False,10,api_name='/generate')
+            result=client.predict('hello','warm',audio,prompt_enabled,prompt,2,False,False,10,12345,1.0,None,api_name='/generate')
             file_url=result.get('url') if isinstance(result,dict) else result
             response=httpx.get(file_url,timeout=10);assert response.status_code==200,response.text
             wav,sr=sf.read(BytesIO(response.content));assert sr==48000 and wav.size>0
